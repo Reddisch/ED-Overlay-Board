@@ -347,7 +347,7 @@ void App::SyncShared() {
     }
     if (w.clickSerial != s.seenClick) {
       s.seenClick = w.clickSerial;
-      if (!s.internal) {
+      if (!s.internal && (s.cfg->type != "window" || s.cfg->forwardClicks)) {
         s.source->OnClick(w.clickX, w.clickY);
         MarkDirty();
       }

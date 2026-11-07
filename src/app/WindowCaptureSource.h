@@ -25,6 +25,9 @@ class WindowCaptureSource : public ContentSource {
 
   ID3D11Texture2D* Update(bool& changed) override;
   std::string Status() const override;
+  // Trigger / pinch on the overlay -> left click into the captured window (posted messages:
+  // the game keeps the focus and the real mouse cursor does not move).
+  void OnClick(float x, float y) override;
 
  private:
   HWND FindTarget() const;
@@ -52,5 +55,6 @@ class WindowCaptureSource : public ContentSource {
   winrt::com_ptr<ID3D11Texture2D> placeholder_;  // "waiting for window" panel
   bool hasFrame_ = false;
   bool placeholderShown_ = false;
+  int region_[4]{};  // part of the captured frame that is shown: x, y, width, height (frame pixels)
   std::chrono::steady_clock::time_point nextSearch_{};
 };

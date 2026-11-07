@@ -73,17 +73,27 @@ Den Layer kurzfristig abschalten: Umgebungsvariable `DISABLE_XR_APILAYER_EDOB_OV
   *Allgemein* und *Status*. Schließen des Fensters beendet die App nicht – „Beenden“ im Tray-Menü.
 - **Im VR:** Strg+Alt+M (oder eine eigene Belegung „VR-Menü ein/aus“) holt das Menü vor dich.
   Controller: Trigger = klicken, Stick = scrollen, Grip = verschieben.
-  Handtracking: Pinch = klicken, Pinch auf die orange Kopfleiste = verschieben.
+  Handtracking: Pinch = klicken, Pinch auf die orange Kopfleiste oder den Rand = verschieben.
+  Pro Fenster lässt sich dort umschalten: sichtbar, verschiebbar und (bei Programmfenstern) klickbar.
 
 ## Bedienung im VR
 
 | Aktion | Controller | Handtracking |
 |---|---|---|
 | Fenster greifen/verschieben | Grip halten, Hand bewegen | Pinch (Daumen + Zeigefinger) halten |
-| Klicken / Kneeboard blättern | Trigger (rechte/linke Hälfte = vor/zurück) | kurzer Pinch |
+| Am Rand greifen | Grip oder Trigger auf dem Rahmen | Pinch auf dem Rahmen |
+| In ein Programmfenster klicken (z. B. EDCoPilot) | Trigger | kurzer Pinch |
+| Kneeboard blättern | Trigger (rechte/linke Hälfte = vor/zurück) | kurzer Pinch |
 | Größe ändern | beim Greifen Stick hoch/runter | mit zweiter Hand ebenfalls greifen und auseinanderziehen |
 | Abstand näher/weiter | beim Greifen Stick links/rechts | – |
 | Zwei-Hand-Skalierung | beide Grips am selben Fenster | beide Hände pinchen |
+
+Um jedes verschiebbare Fenster liegt ein Greifrand, der beim Zeigen als oranger Rahmen erscheint
+(hell = hier wird gegriffen). Auf dem Rand wird nie geklickt. Nicht verschiebbare Fenster haben keinen Rahmen.
+
+Klicks in gespiegelte Programmfenster werden als Fensternachrichten an das Programm geschickt: Das Spiel
+behält den Fokus, die echte Maus bewegt sich nicht. Funktioniert mit EDCoPilot; Programme, die als
+Administrator laufen, nehmen die Klicks nicht an.
 
 Controller funktionieren, sobald das Spiel Controller-Bindings anmeldet (OpenComposite tut das).
 Der Layer hängt seine Aktionen nur an Controller-Profile an, die das Spiel selbst nutzt, und verändert
@@ -124,13 +134,14 @@ die Spielsteuerung nicht. Handtracking wird genutzt, wenn die Runtime `XR_EXT_ha
 | `trim` | (window) zusätzlich Ränder abschneiden `[links, oben, rechts, unten]` in Pixeln |
 | `crop` | (window) Ausschnitt `[x, y, breite, höhe]` in Pixeln, z. B. um Browser-Leisten abzuschneiden |
 | `captureCursor` | (window) Mauszeiger mit aufnehmen |
+| `forwardClicks` | (window) Trigger/Pinch im VR klickt in das Programm (Standard `true`) |
 | `folder` / `images` | (images) Bilderordner bzw. Dateiliste, relativ zur config.json |
 | `position` | Meter relativ zur zentrierten Kopfposition: x = rechts, y = oben, −z = vorne |
 | `rotation` | Grad: `[Neigung, Drehung, Rollen]` |
 | `width` | Breite in Metern (Höhe ergibt sich aus dem Seitenverhältnis) |
 | `opacity` | 0.05 – 1.0 (wenn die Runtime `XR_KHR_composition_layer_color_scale_bias` kann) |
 | `visible` | beim Start sichtbar |
-| `locked` | Fenster kann nicht gegriffen werden |
+| `locked` | Fenster kann nicht gegriffen werden (kein Rahmen; ein Pinch klickt sofort) |
 | `lookToShow` | `true` = nur sichtbar und bedienbar, wenn man in seine Richtung schaut; `false` = immer sichtbar (Standard: `settings.lookToShow`) |
 
 Position, Rotation, Größe, Sichtbarkeit und Seite werden beim Verschieben automatisch zurückgeschrieben.
@@ -206,7 +217,7 @@ resources/    EDOverlayBoard_Layer.json (Layer-Manifest), config.example.json
 ## Roadmap
 
 - Direct3D 12 / Vulkan im Layer (für andere Spiele)
-- Mausklicks in gespiegelte Fenster weiterleiten
+- Scrollen und Ziehen in gespiegelten Fenstern
 - PDF-Seiten als Kneeboard
 - Fenster an Kopf/Hand anheften
 

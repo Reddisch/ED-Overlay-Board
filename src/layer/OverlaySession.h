@@ -103,11 +103,15 @@ class OverlaySession {
     Pose startRel;
     float startWidth = 0;
     Vec3 startLocal;
+    bool bySelect = false;  // started with the trigger (grab zone) -> held by the trigger
+    bool zone = false;      // started on the grab zone -> never a click
   };
   struct Hover {
     int window = -1;
     float distance = 0;
-    Vec3 local;  // hit point in window space
+    Vec3 local;           // hit point in window space
+    bool inside = false;  // on the window itself (not on the grab margin around it)
+    bool zone = false;    // grab zone: margin around the window or the header bar of a panel
   };
 
   void Init();
@@ -133,7 +137,10 @@ class OverlaySession {
   void BuildLayers(const XrFrameEndInfo* info);
 
   Pose World(const Win& w) const { return center_ * w.rel; }
-  bool Intersect(const Win& w, const Pose& ray, float& dist, Vec3& local) const;
+  bool Intersect(const Win& w, const Pose& ray, float margin, float& dist, Vec3& local) const;
+  // Invisible border around each window that grabs instead of clicking (easier to hit than
+  // the window edge, especially with a jittery hand-tracking ray).
+  static float GrabMargin(const Win& w);
 
   bool CreateSwapchain(uint32_t w, uint32_t h, Swapchain& sc);
   void DestroySwapchain(Swapchain& sc);
@@ -174,7 +181,7 @@ class OverlaySession {
   DXGI_FORMAT mipSrvFormat_ = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
 
   Win windows_[ipc::kMaxWindows];
-  Swapchain cursor_, frameHover_, frameGrab_;
+  Swapchain cursor_, frameHover_, frameZone_, frameGrab_;
 
   Pose center_;
   Pose head_;
@@ -190,6 +197,10 @@ class OverlaySession {
   Hover hover_[2];
   int lastHover_[2]{-1, -1};
   bool prevGrab_[2]{}, prevSelect_[2]{};
+  // Last time the ray was on a grab zone: a pinch jerks the hand ray, so a pinch that starts
+  // just after leaving the zone still counts as grabbing.
+  int zoneWindow_[2]{-1, -1};
+  double zoneTime_[2]{-1e9, -1e9};
   int mouseCapture_[2]{-1, -1};  // interactive window holding the "mouse button" of this hand
   bool mouseByPinch_[2]{};
   float twoHandStartDist_ = 0, twoHandStartWidth_ = 0;

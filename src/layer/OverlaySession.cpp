@@ -11,7 +11,7 @@ namespace {
 constexpr float kMaxPointDistance = 8.0f;  // meters
 constexpr float kStickDeadzone = 0.25f;
 constexpr float kCursorSize = 0.012f;
-constexpr float kFrameMargin = 0.006f;
+constexpr double kZoneGraceSeconds = 0.2;  // pinch shortly after leaving the grab zone still grabs
 constexpr double kTapSeconds = 0.35;  // hand tracking: shorter pinch = click
 constexpr float kTapMove = 0.03f;
 
@@ -52,6 +52,7 @@ OverlaySession::~OverlaySession() {
   for (auto& w : windows_) DestroySwapchain(w.swapchain);
   DestroySwapchain(cursor_);
   DestroySwapchain(frameHover_);
+  DestroySwapchain(frameZone_);
   DestroySwapchain(frameGrab_);
   input_.Destroy();
   if (localSpace_ != XR_NULL_HANDLE) next_.xrDestroySpace(localSpace_);
@@ -106,7 +107,8 @@ void OverlaySession::Init() {
   input_.Init(next_, session_, actions_, handTracking);
 
   CreateStaticSwapchain(64, 64, CursorPixels(64), cursor_);
-  CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 140, 25, 110)), frameHover_);
+  CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 140, 25, 70)), frameHover_);
+  CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 140, 25, 190)), frameZone_);
   CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 140, 25, 255)), frameGrab_);
 
   quads_.reserve(ipc::kMaxWindows * 2 + 4);
@@ -400,7 +402,9 @@ bool OverlaySession::PointOnPlane(const Win& w, const Pose& ray, Vec3& local) co
   return true;
 }
 
-bool OverlaySession::Intersect(const Win& w, const Pose& ray, float& dist, Vec3& local) const {
+float OverlaySession::GrabMargin(const Win& w) { return std::clamp(w.width * 0.08f, 0.025f, 0.06f); }
+
+bool OverlaySession::Intersect(const Win& w, const Pose& ray, float margin, float& dist, Vec3& local) const {
   Pose inv = World(w).Inverse();
   Vec3 o = inv.Apply(ray.t);
   Vec3 d = inv.Rotate(ray.Forward());
@@ -408,7 +412,7 @@ bool OverlaySession::Intersect(const Win& w, const Pose& ray, float& dist, Vec3&
   float t = -o.z / d.z;
   if (t < 0 || t > kMaxPointDistance) return false;
   Vec3 p = o + d * t;
-  if (std::fabs(p.x) > w.width * 0.5f || std::fabs(p.y) > w.Height() * 0.5f) return false;
+  if (std::fabs(p.x) > w.width * 0.5f + margin || std::fabs(p.y) > w.Height() * 0.5f + margin) return false;
   dist = t;
   local = p;
   return true;
@@ -454,26 +458,50 @@ void OverlaySession::UpdateInteraction(float dt) {
         if (!Shown(i)) continue;  // only windows you can see can be pointed at / grabbed
         float d;
         Vec3 local;
-        if (Intersect(w, p.pose, d, local) && d < hit.distance) hit = {i, d, local};
+        if (!Intersect(w, p.pose, w.locked ? 0.0f : GrabMargin(w), d, local)) continue;
+        const bool inside = std::fabs(local.x) <= w.width * 0.5f && std::fabs(local.y) <= w.Height() * 0.5f;
+        // a hit on a window itself beats a hit on the (invisible) margin of another one
+        if (hit.window < 0 || (inside && !hit.inside) || (inside == hit.inside && d < hit.distance))
+          hit = {i, d, local, inside, false};
+      }
+      if (hit.window >= 0) {
+        const Win& w = windows_[hit.window];
+        const float v = 0.5f - hit.local.y / std::max(w.Height(), 1e-3f);
+        hit.zone = !w.locked && (!hit.inside || (w.interactive && v < w.headerFraction));
       }
     }
     hover_[h] = hit;
     if (haptics_ && hit.window >= 0 && hit.window != lastHover_[h]) input_.Haptic(h, 0.01f, 0.15f);
     lastHover_[h] = hit.window;
+    if (hit.zone) {
+      zoneWindow_[h] = hit.window;
+      zoneTime_[h] = time_;
+    }
+    const bool zone = hit.window >= 0 && !windows_[hit.window].locked &&
+                      (hit.zone || (zoneWindow_[h] == hit.window && time_ - zoneTime_[h] < kZoneGraceSeconds));
 
-    if (grabs_[h].window >= 0 && (!grabNow || !interaction_)) ReleaseGrab(h);
+    if (grabs_[h].window >= 0) {
+      const bool held = grabs_[h].bySelect ? selNow : grabNow;
+      if (!held || !interaction_ || windows_[grabs_[h].window].locked) ReleaseGrab(h);
+    }
 
-    // Interactive panels (VR menu): trigger / pinch act as a mouse. Moving: grip (controller)
-    // anywhere, or pinch on the header bar (hand tracking).
+    // Grab zone (margin around any window, header bar of the VR menu): grip, trigger or pinch moves.
+    if (grabs_[h].window < 0 && zone && (grabPressed || selPressed)) {
+      StartGrab(h, hit);
+      grabs_[h].bySelect = !grabPressed;
+      grabs_[h].zone = true;
+      continue;
+    }
+
+    // Interactive panels (VR menu): trigger / pinch act as a mouse, grip (controller) moves.
     if (grabs_[h].window < 0 && hit.window >= 0 && windows_[hit.window].interactive) {
       Win& w = windows_[hit.window];
-      const float u = std::clamp(hit.local.x / w.width + 0.5f, 0.0f, 1.0f);
-      const float v = std::clamp(0.5f - hit.local.y / std::max(w.Height(), 1e-3f), 0.0f, 1.0f);
-      w.pointerActive = true;
-      w.pointerX = u;
-      w.pointerY = v;
-      const bool inHeader = v < w.headerFraction;
-      if (selPressed || (p.isHand && grabPressed && !inHeader)) {
+      if (hit.inside) {
+        w.pointerActive = true;
+        w.pointerX = std::clamp(hit.local.x / w.width + 0.5f, 0.0f, 1.0f);
+        w.pointerY = std::clamp(0.5f - hit.local.y / std::max(w.Height(), 1e-3f), 0.0f, 1.0f);
+      }
+      if (hit.inside && (selPressed || (p.isHand && grabPressed))) {
         ++w.pendingDown;
         mouseCapture_[h] = hit.window;
         mouseByPinch_[h] = !selPressed;
@@ -481,7 +509,7 @@ void OverlaySession::UpdateInteraction(float dt) {
         continue;
       }
       if (!p.isHand && std::fabs(p.stickY) > kStickDeadzone) w.pendingWheel += p.stickY * dt * 6.0f;
-      if (grabPressed && (!p.isHand || inHeader)) StartGrab(h, hit);
+      if (grabPressed && !p.isHand) StartGrab(h, hit);
       continue;
     }
 
@@ -500,7 +528,7 @@ void OverlaySession::UpdateInteraction(float dt) {
       }
     }
 
-    if (grabs_[h].window < 0 && selPressed && hit.window >= 0) {
+    if (grabs_[h].window < 0 && selPressed && hit.window >= 0 && hit.inside) {
       Win& w = windows_[hit.window];
       w.clickX = hit.local.x / w.width;
       w.clickY = w.Height() > 0 ? hit.local.y / w.Height() : 0;
@@ -560,7 +588,7 @@ void OverlaySession::ReleaseGrab(int h) {
   const PointerState& p = input_.Pointer(h);
 
   // Hand tracking: a short pinch without movement is a click, not a move.
-  bool tap = p.isHand && g.primary && !w.interactive && grabs_[o].window != g.window &&
+  bool tap = p.isHand && g.primary && !g.zone && !w.interactive && grabs_[o].window != g.window &&
              time_ - g.startTime < kTapSeconds && (p.pose.t - g.startPointer).Length() < kTapMove;
   if (tap) {
     w.rel = g.startRel;
@@ -776,11 +804,16 @@ void OverlaySession::BuildLayers(const XrFrameEndInfo* info) {
     Pose world = World(w);
     float h = w.Height();
 
+    // Frame behind the window = the grab margin: faint while pointing at the window, bright on
+    // the grab zone, solid while held.
     bool grabbed = grabs_[0].window == i || grabs_[1].window == i;
     bool hovered = hover_[0].window == i || hover_[1].window == i;
-    if (grabbed || hovered)
-      addQuad(grabbed ? frameGrab_ : frameHover_, world * Pose::Translation({0, 0, -0.002f}),
-              w.width + 2 * kFrameMargin, h + 2 * kFrameMargin, true);
+    bool onZone = (hover_[0].window == i && hover_[0].zone) || (hover_[1].window == i && hover_[1].zone);
+    if ((grabbed || hovered) && !w.locked) {  // locked windows: no frame at all
+      const float m = GrabMargin(w);
+      addQuad(grabbed ? frameGrab_ : onZone ? frameZone_ : frameHover_, world * Pose::Translation({0, 0, -0.002f}),
+              w.width + 2 * m, h + 2 * m, true);
+    }
 
     bool fade = colorScaleBias_ && w.opacity < 0.999f;
     auto* q = addQuad(w.swapchain, world, w.width, h, !w.opaque || fade);

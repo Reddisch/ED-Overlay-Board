@@ -4,6 +4,7 @@
 #include "Util.h"
 
 #include <dwmapi.h>
+#include <shellscalingapi.h>
 
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Graphics.DirectX.h>
@@ -208,6 +209,49 @@ void WindowCaptureSource::ComputeRegion(int cw, int ch, int& x0, int& y0, int& w
   }
 }
 
+void WindowCaptureSource::OnClick(float x, float y) {
+  if (!hwnd_ || !hasFrame_ || !IsWindow(hwnd_) || region_[2] <= 0 || region_[3] <= 0) return;
+
+  // overlay position -> screen pixel. The capture covers the DWM frame bounds (physical pixels,
+  // this process is per-monitor DPI aware).
+  RECT frame{};
+  if (FAILED(DwmGetWindowAttribute(hwnd_, DWMWA_EXTENDED_FRAME_BOUNDS, &frame, sizeof(frame)))) return;
+  POINT screen{frame.left + region_[0] + static_cast<LONG>((std::clamp(x, -0.5f, 0.5f) + 0.5f) * region_[2]),
+               frame.top + region_[1] + static_cast<LONG>((0.5f - std::clamp(y, -0.5f, 0.5f)) * region_[3])};
+
+  // deepest visible child window at that point (most Qt/WPF UIs have just the top-level one)
+  HWND target = hwnd_;
+  for (int depth = 0; depth < 16; ++depth) {
+    POINT pt = screen;
+    ScreenToClient(target, &pt);
+    HWND child = ChildWindowFromPointEx(target, pt, CWP_SKIPINVISIBLE | CWP_SKIPDISABLED | CWP_SKIPTRANSPARENT);
+    if (!child || child == target) break;
+    target = child;
+  }
+  POINT client = screen;
+  ScreenToClient(target, &client);  // physical pixels
+
+  // DPI-unaware / system-aware targets expect their own (scaled) coordinates
+  UINT windowDpi = GetDpiForWindow(target);
+  UINT monitorDpi = 96, dummy = 96;
+  if (HMONITOR mon = MonitorFromPoint(screen, MONITOR_DEFAULTTONEAREST))
+    GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &monitorDpi, &dummy);
+  if (windowDpi && monitorDpi && windowDpi != monitorDpi) {
+    client.x = MulDiv(client.x, static_cast<int>(windowDpi), static_cast<int>(monitorDpi));
+    client.y = MulDiv(client.y, static_cast<int>(windowDpi), static_cast<int>(monitorDpi));
+  }
+
+  const LPARAM pos = MAKELPARAM(static_cast<int16_t>(client.x), static_cast<int16_t>(client.y));
+  bool ok = PostMessageW(target, WM_MOUSEMOVE, 0, pos) && PostMessageW(target, WM_LBUTTONDOWN, MK_LBUTTON, pos) &&
+            PostMessageW(target, WM_LBUTTONUP, 0, pos);
+  if (ok)
+    Log("Window '{}': click at ({}, {}) in window 0x{:X}", WideToUtf8(name_), client.x, client.y,
+        reinterpret_cast<uintptr_t>(target));
+  else
+    Log("Window '{}': click could not be sent (error {}) - is the program running as administrator?",
+        WideToUtf8(name_), GetLastError());
+}
+
 ID3D11Texture2D* WindowCaptureSource::Update(bool& changed) {
   changed = false;
 
@@ -242,6 +286,10 @@ ID3D11Texture2D* WindowCaptureSource::Update(bool& changed) {
         int ch = std::min<int>(size.Height, static_cast<int>(sd.Height));
         int x0 = 0, y0 = 0, w = cw, h = ch;
         ComputeRegion(cw, ch, x0, y0, w, h);
+        region_[0] = x0;
+        region_[1] = y0;
+        region_[2] = w;
+        region_[3] = h;
 
         if (w > 0 && h > 0) {
           D3D11_TEXTURE2D_DESC td{};

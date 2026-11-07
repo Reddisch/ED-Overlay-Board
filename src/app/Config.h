@@ -20,6 +20,7 @@ struct WindowConfig {
   bool hasCrop = false;
   int crop[4]{};              // legacy: x, y, width, height in window pixels
   bool captureCursor = false;
+  bool forwardClicks = true;  // trigger / pinch in VR clicks into the captured program
 
   // type == "images"
   std::string folder;               // folder with PNG/JPG/... files (relative to config dir)

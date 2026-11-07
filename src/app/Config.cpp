@@ -71,6 +71,7 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       if (w.contains("trim") && w["trim"].is_array() && w["trim"].size() == 4)
         for (int i = 0; i < 4; ++i) c.trim[i] = w["trim"][i].get<int>();
       c.captureCursor = w.value("captureCursor", false);
+      c.forwardClicks = w.value("forwardClicks", true);
       if (w.contains("crop") && w["crop"].is_array() && w["crop"].size() == 4) {
         c.hasCrop = true;
         for (int i = 0; i < 4; ++i) c.crop[i] = w["crop"][i].get<int>();
@@ -131,6 +132,7 @@ bool AppConfig::Save() {
         w["trim"] = json::array({c.trim[0], c.trim[1], c.trim[2], c.trim[3]});
       if (c.hasCrop) w["crop"] = json::array({c.crop[0], c.crop[1], c.crop[2], c.crop[3]});
       if (c.captureCursor) w["captureCursor"] = true;
+      if (!c.forwardClicks) w["forwardClicks"] = false;
     } else {
       if (!c.folder.empty()) w["folder"] = c.folder;
       if (!c.images.empty()) w["images"] = c.images;

@@ -380,6 +380,10 @@ void SettingsWindow::DrawWindowsTab() {
     if (ImGui::IsItemDeactivatedAfterEdit()) app_.ConfigChanged(false);
     ImGui::SetItemTooltip("links, oben, rechts, unten - z. B. für selbst gezeichnete Titelleisten oder Menüleisten");
     if (ImGui::Checkbox("Mauszeiger mit aufnehmen", &w.captureCursor)) app_.ConfigChanged(false);
+    if (ImGui::Checkbox("Im VR klickbar", &w.forwardClicks)) app_.ConfigChanged(false);
+    ImGui::SetItemTooltip(
+        "Trigger (Controller) bzw. kurzer Pinch (Hand-Tracking) klickt in das Programm.\n"
+        "Elite behält den Fokus, die Maus bewegt sich nicht.");
   } else {
     ImGui::InputText("Bilderordner", &w.folder);
     if (ImGui::IsItemDeactivatedAfterEdit()) app_.ConfigChanged(false);
@@ -694,19 +698,28 @@ void VrMenu::Draw() {
   const float header = size.y * kHeaderFraction;
   auto* dl = ImGui::GetWindowDrawList();
   dl->AddRectFilled({0, 0}, {size.x, header}, IM_COL32(255, 140, 25, 255));
-  const char* title = "ED Overlay Board   -   hier greifen zum Verschieben";
+  const char* title = "ED Overlay Board   -   hier oder am Rand greifen";
   ImVec2 ts = ImGui::CalcTextSize(title);
   dl->AddText({(size.x - ts.x) * 0.5f, (header - ts.y) * 0.5f}, IM_COL32(20, 20, 24, 255), title);
   ImGui::SetCursorPosY(header + ImGui::GetStyle().ItemSpacing.y);
 
   ImGui::SeparatorText("Fenster");
   for (int i = 0; i < static_cast<int>(cfg.windows.size()); ++i) {
-    const auto& w = cfg.windows[static_cast<size_t>(i)];
+    auto& w = cfg.windows[static_cast<size_t>(i)];
     ImGui::PushID(i);
     bool v = w.visible;
     if (ImGui::Checkbox(w.name.c_str(), &v)) app_.Do("toggleWindow", w.name);
-    if (w.type == "images") {
-      ImGui::SameLine(size.x * 0.55f);
+    ImGui::SameLine(size.x * 0.48f);
+    bool movable = !w.locked;
+    if (ImGui::Checkbox("verschiebbar", &movable)) {
+      w.locked = !movable;
+      app_.ConfigChanged(false);
+    }
+    if (w.type == "window") {
+      ImGui::SameLine(size.x * 0.78f);
+      if (ImGui::Checkbox("klickbar", &w.forwardClicks)) app_.ConfigChanged(false);
+    } else if (w.type == "images") {
+      ImGui::SameLine(size.x * 0.78f);
       if (ImGui::Button(" < ")) app_.Do("prevPage", w.name);
       ImGui::SameLine();
       if (ImGui::Button(" > ")) app_.Do("nextPage", w.name);
