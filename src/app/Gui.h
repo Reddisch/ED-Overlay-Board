@@ -16,8 +16,10 @@ class App;
 
 struct ActionDef {
   const char* id;
-  const char* label;
+  const char* labelDe;
+  const char* labelEn;
   bool needsWindow;
+  const char* Label() const;  // in the current UI language
 };
 extern const ActionDef kActions[];
 extern const int kActionCount;
@@ -49,6 +51,7 @@ class SettingsWindow {
   UINT resizeW_ = 0, resizeH_ = 0;
 
   int selected_ = 0;
+  int titleLanguage_ = -1;  // language of the window caption (-1 = not set yet)
   int learningBinding_ = -1;
   bool learningJoystick_ = false;
   std::string nameBeforeEdit_;
@@ -67,11 +70,11 @@ class VrMenu : public ContentSource {
   ~VrMenu() override;
 
   ID3D11Texture2D* Update(bool& changed) override;
-  std::string Status() const override { return "VR-Menü"; }
+  std::string Status() const override;
 
-  void SetPointer(bool active, float x, float y);
-  void AddButton(bool down);
-  void AddWheel(float steps);
+  void SetPointer(bool active, float x, float y) override;
+  void AddButton(bool down) override;
+  void AddWheel(float steps) override;
 
  private:
   void Draw();

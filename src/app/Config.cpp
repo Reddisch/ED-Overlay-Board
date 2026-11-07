@@ -58,6 +58,7 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       lookMarginDeg = s.value("lookMarginDeg", lookMarginDeg);
       sharpness = s.value("sharpness", sharpness);
       menuWidth = s.value("menuWidth", menuWidth);
+      language = s.value("language", language);
     }
 
     windows.clear();
@@ -118,6 +119,7 @@ bool AppConfig::Save() {
   s["lookMarginDeg"] = Round(lookMarginDeg, 0.1);
   s["sharpness"] = Round(sharpness, 0.01);
   s["menuWidth"] = Round(menuWidth, 0.001);
+  if (!language.empty()) s["language"] = language;
 
   json ws = json::array();
   for (const auto& c : windows) {

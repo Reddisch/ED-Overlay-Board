@@ -32,6 +32,7 @@ class ImageSource : public ContentSource {
   std::vector<std::filesystem::path> files_;
   int page_ = 0;
   bool dirty_ = true;
+  bool textEnglish_ = false;  // language of the "no images" text
   winrt::com_ptr<ID3D11Texture2D> texture_;
   std::chrono::steady_clock::time_point nextScan_{};
 };

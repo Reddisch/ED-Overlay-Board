@@ -59,6 +59,7 @@ struct AppConfig {
   float lookMarginDeg = 10.0f; // extra angle around a window that still counts as looking at it
   float sharpness = 1.0f;      // 1 = smooth (anti-aliased), 1.5-2 = sharper but may shimmer
   float menuWidth = 0.40f;     // VR quick menu width (m)
+  std::string language;        // "de", "en" or "" = Windows display language
 
   std::filesystem::path file;
   std::filesystem::path Dir() const { return file.parent_path(); }

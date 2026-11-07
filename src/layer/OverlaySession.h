@@ -51,7 +51,8 @@ class OverlaySession {
     bool active = false, visible = false, locked = false, opaque = true;
     bool lookToShow = false;
     bool gazeShown = true;  // currently looked at (or lookToShow disabled)
-    bool interactive = false;  // UI panel (VR menu): trigger/pinch = mouse
+    bool interactive = false;  // the VR menu (visible even while all windows are hidden)
+    bool mouse = false;        // trigger/pinch act as a mouse (VR menu, clickable programs)
     float headerFraction = 0.0f;
     bool summonPending = false;
     bool pointerActive = false;
@@ -201,7 +202,7 @@ class OverlaySession {
   // just after leaving the zone still counts as grabbing.
   int zoneWindow_[2]{-1, -1};
   double zoneTime_[2]{-1e9, -1e9};
-  int mouseCapture_[2]{-1, -1};  // interactive window holding the "mouse button" of this hand
+  int mouseCapture_[2]{-1, -1};  // mouse window holding the "mouse button" of this hand
   bool mouseByPinch_[2]{};
   float twoHandStartDist_ = 0, twoHandStartWidth_ = 0;
 

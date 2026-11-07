@@ -1,5 +1,6 @@
 #include "WindowCaptureSource.h"
 
+#include "Lang.h"
 #include "Log.h"
 #include "Util.h"
 
@@ -62,10 +63,12 @@ std::vector<WindowCaptureSource::WindowInfo> WindowCaptureSource::ListWindows() 
 }
 
 std::string WindowCaptureSource::Status() const {
-  if (title_.empty() && process_.empty()) return "kein Programm/Titel eingestellt";
-  if (session_ && hasFrame_) return "erfasst \"" + capturedTitle_ + "\"";
-  if (session_) return "verbunden mit \"" + capturedTitle_ + "\", wartet auf Bild (minimiert?)";
-  return "wartet auf Fenster";
+  if (title_.empty() && process_.empty()) return T("kein Programm/Titel eingestellt", "no program/title set");
+  if (session_ && hasFrame_) return T("erfasst \"", "capturing \"") + capturedTitle_ + "\"";
+  if (session_)
+    return T("verbunden mit \"", "connected to \"") + capturedTitle_ +
+           T("\", wartet auf Bild (minimiert?)", "\", waiting for a picture (minimized?)");
+  return T("wartet auf Fenster", "waiting for the window");
 }
 
 WindowCaptureSource::WindowCaptureSource(D3D& d3d, const WindowConfig& cfg)
@@ -153,15 +156,21 @@ void WindowCaptureSource::StopCapture() {
   item_ = nullptr;
   hwnd_ = nullptr;
   hasFrame_ = false;
+  pointerHwnd_ = pressHwnd_ = nullptr;
+  pointerIn_ = pressed_ = dragging_ = false;
 }
 
 ID3D11Texture2D* WindowCaptureSource::Placeholder(bool& changed) {
-  if (!placeholder_) {
+  if (!placeholder_ || placeholderEnglish_ != i18n::English()) {
+    placeholderEnglish_ = i18n::English();
+    placeholderShown_ = false;
     std::wstring what = !process_.empty() ? process_ : (L"\"" + title_ + L"\"");
     placeholder_ = d3d_.CreateTextTexture(
-        name_, L"Waiting for window: " + what +
-                   L"\n\nStart the program and make sure the window is not minimized. "
-                   L"Grab this panel with the grip button to move it.");
+        name_, T(L"Warte auf Fenster: ", L"Waiting for window: ") + what +
+                   T(L"\n\nProgramm starten und darauf achten, dass das Fenster nicht minimiert ist. "
+                     L"Zum Verschieben am Rand oder mit dem Grip-Knopf greifen.",
+                     L"\n\nStart the program and make sure the window is not minimized. "
+                     L"Grab this panel at its border or with the grip button to move it."));
   }
   if (!placeholderShown_) {
     placeholderShown_ = true;
@@ -209,17 +218,22 @@ void WindowCaptureSource::ComputeRegion(int cw, int ch, int& x0, int& y0, int& w
   }
 }
 
-void WindowCaptureSource::OnClick(float x, float y) {
-  if (!hwnd_ || !hasFrame_ || !IsWindow(hwnd_) || region_[2] <= 0 || region_[3] <= 0) return;
+// ---------------------------------------------------------------------------
+// Mouse input from VR. Sent as posted window messages: the game keeps the focus and the real
+// mouse cursor does not move. Works with Qt (EDCoPilot), Win32 and most WPF/WinForms programs.
 
-  // overlay position -> screen pixel. The capture covers the DWM frame bounds (physical pixels,
-  // this process is per-monitor DPI aware).
+bool WindowCaptureSource::ToScreen(float u, float v, POINT& screen) const {
+  if (!hwnd_ || !hasFrame_ || !IsWindow(hwnd_) || region_[2] <= 0 || region_[3] <= 0) return false;
+  // The capture covers the DWM frame bounds (physical pixels; this process is per-monitor DPI aware).
   RECT frame{};
-  if (FAILED(DwmGetWindowAttribute(hwnd_, DWMWA_EXTENDED_FRAME_BOUNDS, &frame, sizeof(frame)))) return;
-  POINT screen{frame.left + region_[0] + static_cast<LONG>((std::clamp(x, -0.5f, 0.5f) + 0.5f) * region_[2]),
-               frame.top + region_[1] + static_cast<LONG>((0.5f - std::clamp(y, -0.5f, 0.5f)) * region_[3])};
+  if (FAILED(DwmGetWindowAttribute(hwnd_, DWMWA_EXTENDED_FRAME_BOUNDS, &frame, sizeof(frame)))) return false;
+  screen = {frame.left + region_[0] + static_cast<LONG>(std::clamp(u, 0.0f, 1.0f) * (region_[2] - 1)),
+            frame.top + region_[1] + static_cast<LONG>(std::clamp(v, 0.0f, 1.0f) * (region_[3] - 1))};
+  return true;
+}
 
-  // deepest visible child window at that point (most Qt/WPF UIs have just the top-level one)
+HWND WindowCaptureSource::ChildAt(POINT screen) const {
+  // deepest visible child window at that point (Qt/WPF UIs usually have just the top-level one)
   HWND target = hwnd_;
   for (int depth = 0; depth < 16; ++depth) {
     POINT pt = screen;
@@ -228,9 +242,12 @@ void WindowCaptureSource::OnClick(float x, float y) {
     if (!child || child == target) break;
     target = child;
   }
+  return target;
+}
+
+POINT WindowCaptureSource::ToClient(HWND target, POINT screen) {
   POINT client = screen;
   ScreenToClient(target, &client);  // physical pixels
-
   // DPI-unaware / system-aware targets expect their own (scaled) coordinates
   UINT windowDpi = GetDpiForWindow(target);
   UINT monitorDpi = 96, dummy = 96;
@@ -240,16 +257,101 @@ void WindowCaptureSource::OnClick(float x, float y) {
     client.x = MulDiv(client.x, static_cast<int>(windowDpi), static_cast<int>(monitorDpi));
     client.y = MulDiv(client.y, static_cast<int>(windowDpi), static_cast<int>(monitorDpi));
   }
+  return client;
+}
 
+bool WindowCaptureSource::Post(HWND target, UINT msg, WPARAM wp, POINT client) {
   const LPARAM pos = MAKELPARAM(static_cast<int16_t>(client.x), static_cast<int16_t>(client.y));
-  bool ok = PostMessageW(target, WM_MOUSEMOVE, 0, pos) && PostMessageW(target, WM_LBUTTONDOWN, MK_LBUTTON, pos) &&
-            PostMessageW(target, WM_LBUTTONUP, 0, pos);
-  if (ok)
-    Log("Window '{}': click at ({}, {}) in window 0x{:X}", WideToUtf8(name_), client.x, client.y,
-        reinterpret_cast<uintptr_t>(target));
-  else
-    Log("Window '{}': click could not be sent (error {}) - is the program running as administrator?",
+  if (PostMessageW(target, msg, wp, pos)) return true;
+  if (!postErrorLogged_)
+    Log("Window '{}': mouse input could not be sent (error {}) - is the program running as administrator?",
         WideToUtf8(name_), GetLastError());
+  postErrorLogged_ = true;
+  return false;
+}
+
+// Programs that poll the real cursor (Qt, Tk, ...) get confused when a press and its release
+// arrive far apart while the real mouse is somewhere else. So a tap is sent as one burst
+// (move, down, up) on release, which every toolkit accepts as a click. Only when the pointer
+// moves clearly while held does it become a real drag (down ... moves ... up).
+void WindowCaptureSource::SetPointer(bool active, float x, float y) {
+  POINT screen{};
+  if (!active || !ToScreen(x, y, screen)) {
+    pointerIn_ = false;
+    return;
+  }
+  HWND target = dragging_ && IsWindow(pressHwnd_) ? pressHwnd_ : ChildAt(screen);
+  const POINT client = ToClient(target, screen);
+  const bool moved = client.x != pointerClient_.x || client.y != pointerClient_.y || target != pointerHwnd_;
+  pointerHwnd_ = target;
+  pointerClient_ = client;
+  pointerScreen_ = screen;
+  pointerIn_ = true;
+
+  if (pressed_ && !dragging_) {
+    const LONG dx = screen.x - pressScreen_.x, dy = screen.y - pressScreen_.y;
+    const LONG threshold = std::max<LONG>(8, region_[2] / 50);  // ~2% of the width: absorbs pinch jitter
+    if (dx * dx + dy * dy > threshold * threshold && IsWindow(pressHwnd_)) {
+      dragging_ = true;
+      Post(pressHwnd_, WM_MOUSEMOVE, 0, pressClient_);
+      Post(pressHwnd_, WM_LBUTTONDOWN, MK_LBUTTON, pressClient_);
+      Log("Window '{}': drag from ({}, {})", WideToUtf8(name_), pressClient_.x, pressClient_.y);
+      pointerHwnd_ = pressHwnd_;
+      pointerClient_ = ToClient(pressHwnd_, screen);
+      Post(pressHwnd_, WM_MOUSEMOVE, MK_LBUTTON, pointerClient_);
+      return;
+    }
+  }
+  if (dragging_ && moved) Post(pressHwnd_, WM_MOUSEMOVE, MK_LBUTTON, client);
+}
+
+void WindowCaptureSource::AddButton(bool down) {
+  if (down) {
+    if (pressed_ || !pointerIn_ || !IsWindow(pointerHwnd_)) return;
+    pressed_ = true;
+    dragging_ = false;
+    pressHwnd_ = pointerHwnd_;
+    pressClient_ = pointerClient_;
+    pressScreen_ = pointerScreen_;
+    return;
+  }
+  if (!pressed_) return;
+  pressed_ = false;
+  if (!IsWindow(pressHwnd_)) {
+    dragging_ = false;
+    return;
+  }
+  if (dragging_) {
+    dragging_ = false;
+    Post(pressHwnd_, WM_LBUTTONUP, 0, pointerHwnd_ == pressHwnd_ ? pointerClient_ : pressClient_);
+    Log("Window '{}': drag to ({}, {})", WideToUtf8(name_), pointerClient_.x, pointerClient_.y);
+    return;
+  }
+  const bool ok = Post(pressHwnd_, WM_MOUSEMOVE, 0, pressClient_) &&
+                  Post(pressHwnd_, WM_LBUTTONDOWN, MK_LBUTTON, pressClient_) &&
+                  Post(pressHwnd_, WM_LBUTTONUP, 0, pressClient_);
+  if (ok)
+    Log("Window '{}': click at ({}, {}) in window 0x{:X}", WideToUtf8(name_), pressClient_.x, pressClient_.y,
+        reinterpret_cast<uintptr_t>(pressHwnd_));
+}
+
+void WindowCaptureSource::AddWheel(float steps) {
+  if (!pointerIn_ || !IsWindow(pointerHwnd_)) return;
+  wheelAccum_ += steps * WHEEL_DELTA;
+  const int delta = static_cast<int>(wheelAccum_);
+  if (delta == 0) return;
+  wheelAccum_ -= static_cast<float>(delta);
+  // WM_MOUSEWHEEL carries screen coordinates (in the target's DPI view)
+  POINT pt = pointerScreen_;
+  PhysicalToLogicalPointForPerMonitorDPI(pointerHwnd_, &pt);
+  const WPARAM wp = MAKEWPARAM(dragging_ ? MK_LBUTTON : 0, static_cast<WORD>(static_cast<int16_t>(delta)));
+  PostMessageW(pointerHwnd_, WM_MOUSEWHEEL, wp, MAKELPARAM(static_cast<int16_t>(pt.x), static_cast<int16_t>(pt.y)));
+  const auto now = std::chrono::steady_clock::now();
+  if (now - lastWheelLog_ > std::chrono::seconds(1)) {
+    lastWheelLog_ = now;
+    Log("Window '{}': mouse wheel ({} units) at ({}, {}) in window 0x{:X}", WideToUtf8(name_), delta,
+        pointerClient_.x, pointerClient_.y, reinterpret_cast<uintptr_t>(pointerHwnd_));
+  }
 }
 
 ID3D11Texture2D* WindowCaptureSource::Update(bool& changed) {

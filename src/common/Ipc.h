@@ -16,12 +16,12 @@
 namespace ipc {
 
 constexpr uint32_t kMagic = 0x424F4445;  // "EDOB"
-constexpr uint32_t kVersion = 4;
+constexpr uint32_t kVersion = 5;
 constexpr int kMaxWindows = 16;
 constexpr uint64_t kHeartbeatTimeoutMs = 3000;
 
-inline constexpr wchar_t kMappingName[] = L"Local\\EDOverlayBoard.State.v4";
-inline constexpr wchar_t kMutexName[] = L"Local\\EDOverlayBoard.Mutex.v4";
+inline constexpr wchar_t kMappingName[] = L"Local\\EDOverlayBoard.State.v5";
+inline constexpr wchar_t kMutexName[] = L"Local\\EDOverlayBoard.Mutex.v5";
 
 // Name of a shared D3D11 texture (NT handle + keyed mutex, BGRA8). `generation` is unique
 // within one app instance, so a name is never reused while the layer may still hold it.
@@ -60,9 +60,10 @@ struct Window {
   uint32_t locked;
   uint32_t opaque;   // ignore texture alpha (captured windows)
   uint32_t lookToShow;  // only visible (and interactive) while looking towards it
-  uint32_t interactive;   // UI panel: trigger/pinch act as mouse (see pointer* below)
+  uint32_t interactive;   // the VR menu: stays visible while all windows are hidden
+  uint32_t mouseInput;    // trigger/pinch act as a mouse (see pointer* below): VR menu, clickable programs
   uint32_t summonOnShow;  // when it becomes visible, place it in front of the user
-  float headerFraction;   // interactive: top part (0..1) that hand tracking grabs instead of clicking
+  float headerFraction;   // mouseInput: top part (0..1) that grabs instead of clicking
   float opacity;
 
   // texture (app -> layer)
@@ -78,7 +79,7 @@ struct Window {
   uint32_t clickSerial;  // layer -> app
   float clickX, clickY;  // [-0.5, 0.5], x right, y up
 
-  // layer -> app, interactive windows only (coordinates 0..1, origin top-left)
+  // layer -> app, mouseInput windows only (coordinates 0..1, origin top-left)
   uint32_t pointerActive;
   float pointerX, pointerY;
   uint32_t pointerDownSerial, pointerUpSerial;  // each press / release increments

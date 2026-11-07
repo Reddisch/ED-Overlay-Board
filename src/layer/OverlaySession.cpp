@@ -273,6 +273,7 @@ void OverlaySession::SyncIpc() {
     w.opaque = sw.opaque;
     w.lookToShow = sw.lookToShow;
     w.interactive = sw.interactive;
+    w.mouse = sw.mouseInput != 0;
     w.headerFraction = sw.headerFraction;
     w.opacity = sw.opacity;
     w.texW = sw.texWidth;
@@ -297,7 +298,7 @@ void OverlaySession::SyncIpc() {
       ++sw.clickSerial;
       w.clickPending = false;
     }
-    if (w.interactive) {
+    if (w.mouse) {
       sw.pointerActive = w.pointerActive;
       sw.pointerX = w.pointerX;
       sw.pointerY = w.pointerY;
@@ -430,8 +431,8 @@ void OverlaySession::UpdateInteraction(float dt) {
 
     if (grabs_[h].window >= 0 && allHidden_ && !windows_[grabs_[h].window].interactive) ReleaseGrab(h);
 
-    // Interactive panel with the "mouse button" held: keep feeding this panel until release,
-    // even if the ray slides off (dragging a slider).
+    // Mouse window with the "mouse button" held: keep feeding this window until release,
+    // even if the ray slides off (dragging a slider or a scrollbar).
     if (mouseCapture_[h] >= 0) {
       const int idx = mouseCapture_[h];
       Win& w = windows_[idx];
@@ -441,9 +442,9 @@ void OverlaySession::UpdateInteraction(float dt) {
         w.pointerActive = true;
         w.pointerX = std::clamp(local.x / w.width + 0.5f, 0.0f, 1.0f);
         w.pointerY = std::clamp(0.5f - local.y / std::max(w.Height(), 1e-3f), 0.0f, 1.0f);
-        hover_[h] = {idx, 0.0f, local};
+        hover_[h] = {idx, 0.0f, local, true, false};
       }
-      if (!held || !p.valid || !Shown(idx)) {
+      if (!held || !p.valid || !Shown(idx) || !w.mouse) {
         ++w.pendingUp;
         mouseCapture_[h] = -1;
       }
@@ -467,7 +468,7 @@ void OverlaySession::UpdateInteraction(float dt) {
       if (hit.window >= 0) {
         const Win& w = windows_[hit.window];
         const float v = 0.5f - hit.local.y / std::max(w.Height(), 1e-3f);
-        hit.zone = !w.locked && (!hit.inside || (w.interactive && v < w.headerFraction));
+        hit.zone = !w.locked && (!hit.inside || (w.mouse && v < w.headerFraction));
       }
     }
     hover_[h] = hit;
@@ -493,8 +494,9 @@ void OverlaySession::UpdateInteraction(float dt) {
       continue;
     }
 
-    // Interactive panels (VR menu): trigger / pinch act as a mouse, grip (controller) moves.
-    if (grabs_[h].window < 0 && hit.window >= 0 && windows_[hit.window].interactive) {
+    // Mouse windows (VR menu, clickable programs): trigger / pinch act as a mouse (click, drag),
+    // stick = wheel, grip (controller) moves.
+    if (grabs_[h].window < 0 && hit.window >= 0 && windows_[hit.window].mouse) {
       Win& w = windows_[hit.window];
       if (hit.inside) {
         w.pointerActive = true;
@@ -509,7 +511,7 @@ void OverlaySession::UpdateInteraction(float dt) {
         continue;
       }
       if (!p.isHand && std::fabs(p.stickY) > kStickDeadzone) w.pendingWheel += p.stickY * dt * 6.0f;
-      if (grabPressed && !p.isHand) StartGrab(h, hit);
+      if (grabPressed && !p.isHand && !w.locked) StartGrab(h, hit);
       continue;
     }
 
@@ -588,7 +590,7 @@ void OverlaySession::ReleaseGrab(int h) {
   const PointerState& p = input_.Pointer(h);
 
   // Hand tracking: a short pinch without movement is a click, not a move.
-  bool tap = p.isHand && g.primary && !g.zone && !w.interactive && grabs_[o].window != g.window &&
+  bool tap = p.isHand && g.primary && !g.zone && !w.mouse && grabs_[o].window != g.window &&
              time_ - g.startTime < kTapSeconds && (p.pose.t - g.startPointer).Length() < kTapMove;
   if (tap) {
     w.rel = g.startRel;

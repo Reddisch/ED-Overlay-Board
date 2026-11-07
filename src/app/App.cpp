@@ -2,6 +2,7 @@
 
 #include "Gui.h"
 #include "ImageSource.h"
+#include "Lang.h"
 #include "Log.h"
 #include "Util.h"
 #include "WindowCaptureSource.h"
@@ -50,6 +51,7 @@ App::~App() {
 
 int App::Run(const std::filesystem::path& configPath) {
   if (!cfg_.Load(configPath)) return 1;
+  i18n::Apply(cfg_.language);
   if (!Init()) return 1;
 
   Log("Running. Settings: tray icon (double-click). Start Elite Dangerous in VR - the windows appear there. "
@@ -321,6 +323,14 @@ void App::SyncShared() {
     w.opaque = c.type != "images";
     w.lookToShow = s.internal ? 0 : (c.lookToShow < 0 ? cfg_.lookToShow : c.lookToShow == 1);
     w.interactive = s.internal;
+    // VR menu and clickable program windows: trigger/pinch act as a mouse (click, drag, wheel)
+    const bool mouse = s.internal || (c.type == "window" && c.forwardClicks);
+    w.mouseInput = mouse;
+    if (s.mouse && !mouse && s.source) {  // switched off while in use: release the button
+      s.source->SetPointer(false, 0.0f, 0.0f);
+      s.source->AddButton(false);
+    }
+    s.mouse = mouse;
     w.summonOnShow = s.internal;
     w.headerFraction = s.internal ? VrMenu::kHeaderFraction : 0.0f;
     w.opacity = std::clamp(c.opacity, 0.05f, 1.0f);
@@ -347,24 +357,24 @@ void App::SyncShared() {
     }
     if (w.clickSerial != s.seenClick) {
       s.seenClick = w.clickSerial;
-      if (!s.internal && (s.cfg->type != "window" || s.cfg->forwardClicks)) {
+      if (!s.internal && !mouse) {
         s.source->OnClick(w.clickX, w.clickY);
         MarkDirty();
       }
     }
-    if (s.internal) {  // pointer events for the VR menu
-      vrMenu_->SetPointer(w.pointerActive != 0, w.pointerX, w.pointerY);
+    if (mouse && s.source) {  // pointer events
+      s.source->SetPointer(w.pointerActive != 0, w.pointerX, w.pointerY);
       uint32_t downs = std::min(w.pointerDownSerial - s.seenDown, 8u);
       uint32_t ups = std::min(w.pointerUpSerial - s.seenUp, 8u);
       s.seenDown = w.pointerDownSerial;
       s.seenUp = w.pointerUpSerial;
       for (uint32_t k = 0; k < std::max(downs, ups); ++k) {
-        if (k < downs) vrMenu_->AddButton(true);
-        if (k < ups) vrMenu_->AddButton(false);
+        if (k < downs) s.source->AddButton(true);
+        if (k < ups) s.source->AddButton(false);
       }
       float wheel = w.pointerWheel - s.seenWheel;
       s.seenWheel = w.pointerWheel;
-      if (std::fabs(wheel) > 1e-3f) vrMenu_->AddWheel(wheel);
+      if (std::fabs(wheel) > 1e-3f) s.source->AddWheel(wheel);
     }
   }
   for (size_t i = slots_.size(); i < ipc::kMaxWindows; ++i) st->windows[i].active = 0;
@@ -438,7 +448,7 @@ std::string App::WindowStatus(int window) const {
   if (window < 0 || window >= static_cast<int>(slots_.size()) || !slots_[static_cast<size_t>(window)].source) return {};
   const auto& s = slots_[static_cast<size_t>(window)];
   std::string st = s.source->Status();
-  if (!s.cfg->visible) st += " (ausgeblendet)";
+  if (!s.cfg->visible) st += T(" (ausgeblendet)", " (hidden)");
   return st;
 }
 
@@ -531,17 +541,32 @@ void App::CreateTrayIcon() {
   nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
   nid.uCallbackMessage = kTrayMessage;
   nid.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
-  wcscpy_s(nid.szTip, L"ED Overlay Board (Doppelklick = Einstellungen)");
+  wcscpy_s(nid.szTip, T(L"ED Overlay Board (Doppelklick = Einstellungen)", L"ED Overlay Board (double-click = settings)"));
   trayCreated_ = Shell_NotifyIconW(NIM_ADD, &nid) != FALSE;
+}
+
+void App::SetLanguage(const std::string& language) {
+  cfg_.language = language;
+  i18n::Apply(language);
+  if (trayCreated_) {  // tray tooltip
+    NOTIFYICONDATAW nid{sizeof(nid)};
+    nid.hWnd = hwnd_;
+    nid.uID = 1;
+    nid.uFlags = NIF_TIP;
+    wcscpy_s(nid.szTip, T(L"ED Overlay Board (Doppelklick = Einstellungen)", L"ED Overlay Board (double-click = settings)"));
+    Shell_NotifyIconW(NIM_MODIFY, &nid);
+  }
+  ConfigChanged(false);
 }
 
 void App::ShowTrayMenu() {
   HMENU menu = CreatePopupMenu();
-  AppendMenuW(menu, MF_STRING, 1, L"Einstellungen");
-  AppendMenuW(menu, MF_STRING, 2, MenuVisible() ? L"VR-Menü ausblenden" : L"VR-Menü einblenden");
-  AppendMenuW(menu, MF_STRING, 3, L"Zentrieren");
+  AppendMenuW(menu, MF_STRING, 1, T(L"Einstellungen", L"Settings"));
+  AppendMenuW(menu, MF_STRING, 2,
+              MenuVisible() ? T(L"VR-Menü ausblenden", L"Hide VR menu") : T(L"VR-Menü einblenden", L"Show VR menu"));
+  AppendMenuW(menu, MF_STRING, 3, T(L"Zentrieren", L"Recenter"));
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-  AppendMenuW(menu, MF_STRING, 9, L"Beenden");
+  AppendMenuW(menu, MF_STRING, 9, T(L"Beenden", L"Quit"));
   POINT pt;
   GetCursorPos(&pt);
   SetForegroundWindow(hwnd_);

@@ -34,6 +34,7 @@ class App {
   void PlacementEdited(int window);     // position/rotation/width typed in the settings
   void Do(const std::string& action, const std::string& window = {});
   std::string WindowStatus(int window) const;
+  void SetLanguage(const std::string& language);  // "de" / "en"; applies and saves
 
   struct VrStatus {
     bool connected = false;
@@ -73,6 +74,7 @@ class App {
     bool pushPlacement = true;
     uint32_t seenLayerPlacement = 0, seenClick = 0, seenDown = 0, seenUp = 0;
     float seenWheel = 0.0f;
+    bool mouse = false;  // mouse input enabled (last value sent to the layer)
   };
 
   bool Init();

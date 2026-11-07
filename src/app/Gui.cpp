@@ -1,6 +1,7 @@
 #include "Gui.h"
 
 #include "App.h"
+#include "Lang.h"
 #include "LayerRegistration.h"
 #include "Log.h"
 #include "Util.h"
@@ -19,16 +20,17 @@
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 const ActionDef kActions[] = {
-    {"recenter", "Zentrieren", false},
-    {"toggleAll", "Alle Fenster ein/aus", false},
-    {"toggleWindow", "Fenster ein/aus", true},
-    {"nextPage", "Nächste Seite", true},
-    {"prevPage", "Vorherige Seite", true},
-    {"toggleInteraction", "Greifen sperren/entsperren", false},
-    {"toggleMenu", "VR-Menü ein/aus", false},
-    {"openSettings", "Einstellungen öffnen", false},
+    {"recenter", "Zentrieren", "Recenter", false},
+    {"toggleAll", "Alle Fenster ein/aus", "All windows on/off", false},
+    {"toggleWindow", "Fenster ein/aus", "Window on/off", true},
+    {"nextPage", "Nächste Seite", "Next page", true},
+    {"prevPage", "Vorherige Seite", "Previous page", true},
+    {"toggleInteraction", "Greifen sperren/entsperren", "Lock/unlock grabbing", false},
+    {"toggleMenu", "VR-Menü ein/aus", "VR menu on/off", false},
+    {"openSettings", "Einstellungen öffnen", "Open settings", false},
 };
 const int kActionCount = static_cast<int>(std::size(kActions));
+const char* ActionDef::Label() const { return T(labelDe, labelEn); }
 
 namespace {
 
@@ -84,6 +86,16 @@ void OpenFolder(const std::filesystem::path& p) {
   ShellExecuteW(nullptr, L"open", p.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
 
+// Slider Deutsch <-> English. Returns true when the language was changed.
+bool LanguageSlider(App& app, const char* id, float width) {
+  int lang = i18n::English() ? 1 : 0;
+  ImGui::SetNextItemWidth(width);
+  if (!ImGui::SliderInt(id, &lang, 0, 1, lang ? "Language: English" : "Sprache: Deutsch")) return false;
+  if ((lang == 1) == i18n::English()) return false;
+  app.SetLanguage(lang ? "en" : "de");
+  return true;
+}
+
 int ActionIndex(const std::string& id) {
   for (int i = 0; i < kActionCount; ++i)
     if (id == kActions[i].id) return i;
@@ -108,7 +120,7 @@ SettingsWindow::SettingsWindow(App& app) : app_(app) {
   wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
   wc.lpszClassName = L"EDOverlayBoardSettings";
   RegisterClassExW(&wc);
-  hwnd_ = CreateWindowExW(0, wc.lpszClassName, L"ED Overlay Board – Einstellungen", WS_OVERLAPPEDWINDOW,
+  hwnd_ = CreateWindowExW(0, wc.lpszClassName, L"ED Overlay Board", WS_OVERLAPPEDWINDOW,
                           CW_USEDEFAULT, CW_USEDEFAULT, 1100, 760, nullptr, nullptr, wc.hInstance, nullptr);
   SetWindowLongPtrW(hwnd_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
   scale_ = GetDpiForWindow(hwnd_) / 96.0f;
@@ -201,6 +213,10 @@ LRESULT CALLBACK SettingsWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
 
 void SettingsWindow::Frame() {
   if (!Visible() || !swapchain_) return;
+  if (titleLanguage_ != static_cast<int>(i18n::English())) {
+    titleLanguage_ = static_cast<int>(i18n::English());
+    SetWindowTextW(hwnd_, T(L"ED Overlay Board – Einstellungen", L"ED Overlay Board – Settings"));
+  }
   if (resizeW_ && resizeH_) {
     rtv_ = nullptr;
     swapchain_->ResizeBuffers(0, resizeW_, resizeH_, DXGI_FORMAT_UNKNOWN, 0);
@@ -251,19 +267,19 @@ void SettingsWindow::Draw() {
   const float footer = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y * 2;
   ImGui::BeginChild("##tabs", {0, -footer});
   if (ImGui::BeginTabBar("##tabbar")) {
-    if (ImGui::BeginTabItem("Fenster")) {
+    if (ImGui::BeginTabItem(T("Fenster###windows", "Windows###windows"))) {
       DrawWindowsTab();
       ImGui::EndTabItem();
     }
-    if (ImGui::BeginTabItem("Tasten")) {
+    if (ImGui::BeginTabItem(T("Tasten###bindings", "Bindings###bindings"))) {
       DrawBindingsTab();
       ImGui::EndTabItem();
     }
-    if (ImGui::BeginTabItem("Allgemein")) {
+    if (ImGui::BeginTabItem(T("Allgemein###general", "General###general"))) {
       DrawGeneralTab();
       ImGui::EndTabItem();
     }
-    if (ImGui::BeginTabItem("Status")) {
+    if (ImGui::BeginTabItem("Status###status")) {
       DrawStatusTab();
       ImGui::EndTabItem();
     }
@@ -272,11 +288,13 @@ void SettingsWindow::Draw() {
   ImGui::EndChild();
 
   ImGui::Separator();
-  if (ImGui::Button(app_.MenuVisible() ? "VR-Menü ausblenden" : "VR-Menü einblenden")) app_.Do("toggleMenu");
+  if (ImGui::Button(app_.MenuVisible() ? T("VR-Menü ausblenden", "Hide VR menu") : T("VR-Menü einblenden", "Show VR menu")))
+    app_.Do("toggleMenu");
   ImGui::SameLine();
-  if (ImGui::Button("Zentrieren")) app_.Do("recenter");
+  if (ImGui::Button(T("Zentrieren", "Recenter"))) app_.Do("recenter");
   ImGui::SameLine();
-  ImGui::TextDisabled("Änderungen wirken sofort und werden automatisch gespeichert.");
+  ImGui::TextDisabled("%s", T("Änderungen wirken sofort und werden automatisch gespeichert.",
+                              "Changes apply immediately and are saved automatically."));
   ImGui::End();
 }
 
@@ -289,33 +307,33 @@ void SettingsWindow::DrawWindowsTab() {
   for (int i = 0; i < static_cast<int>(cfg.windows.size()); ++i) {
     ImGui::PushID(i);
     const auto& w = cfg.windows[static_cast<size_t>(i)];
-    std::string label = (w.visible ? "" : "(aus) ") + w.name;
+    std::string label = (w.visible ? "" : T("(aus) ", "(off) ")) + w.name;
     if (ImGui::Selectable(label.c_str(), selected_ == i)) selected_ = i;
     ImGui::PopID();
   }
   ImGui::EndChild();
   const float half = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
-  if (ImGui::Button("Neu", {half, 0}) && cfg.windows.size() < ipc::kMaxWindows - 1) {
+  if (ImGui::Button(T("Neu", "New"), {half, 0}) && cfg.windows.size() < ipc::kMaxWindows - 1) {
     WindowConfig w;
-    w.name = "Fenster " + std::to_string(cfg.windows.size() + 1);
+    w.name = T("Fenster ", "Window ") + std::to_string(cfg.windows.size() + 1);
     w.position = {0.0f, -0.1f, -0.7f};
     cfg.windows.push_back(w);
     selected_ = static_cast<int>(cfg.windows.size()) - 1;
     app_.ConfigChanged(true);
   }
   ImGui::SameLine();
-  if (ImGui::Button("Löschen", {half, 0}) && selected_ < static_cast<int>(cfg.windows.size())) {
+  if (ImGui::Button(T("Löschen", "Delete"), {half, 0}) && selected_ < static_cast<int>(cfg.windows.size())) {
     cfg.windows.erase(cfg.windows.begin() + selected_);
     selected_ = std::max(0, selected_ - 1);
     app_.ConfigChanged(true);
   }
-  if (ImGui::Button("Hoch", {half, 0}) && selected_ > 0) {
+  if (ImGui::Button(T("Hoch", "Up"), {half, 0}) && selected_ > 0) {
     std::swap(cfg.windows[static_cast<size_t>(selected_)], cfg.windows[static_cast<size_t>(selected_ - 1)]);
     --selected_;
     app_.ConfigChanged(true);
   }
   ImGui::SameLine();
-  if (ImGui::Button("Runter", {half, 0}) && selected_ + 1 < static_cast<int>(cfg.windows.size())) {
+  if (ImGui::Button(T("Runter", "Down"), {half, 0}) && selected_ + 1 < static_cast<int>(cfg.windows.size())) {
     std::swap(cfg.windows[static_cast<size_t>(selected_)], cfg.windows[static_cast<size_t>(selected_ + 1)]);
     ++selected_;
     app_.ConfigChanged(true);
@@ -325,7 +343,8 @@ void SettingsWindow::DrawWindowsTab() {
   ImGui::SameLine();
   ImGui::BeginChild("##props", {0, 0});
   if (selected_ >= static_cast<int>(cfg.windows.size())) {
-    ImGui::TextDisabled("Kein Fenster ausgewählt. Mit \"Neu\" ein Fenster anlegen.");
+    ImGui::TextDisabled("%s", T("Kein Fenster ausgewählt. Mit \"Neu\" ein Fenster anlegen.",
+                                "No window selected. Use \"New\" to add one."));
     ImGui::EndChild();
     return;
   }
@@ -333,7 +352,7 @@ void SettingsWindow::DrawWindowsTab() {
   WindowConfig& w = cfg.windows[static_cast<size_t>(i)];
   ImGui::PushItemWidth(-260 * s);
 
-  ImGui::SeparatorText("Inhalt");
+  ImGui::SeparatorText(T("Inhalt", "Content"));
   ImGui::InputText("Name", &w.name);
   if (ImGui::IsItemActivated()) nameBeforeEdit_ = w.name;
   if (ImGui::IsItemDeactivatedAfterEdit()) {
@@ -343,75 +362,94 @@ void SettingsWindow::DrawWindowsTab() {
   }
 
   int type = w.type == "images" ? 1 : 0;
-  if (ImGui::Combo("Typ", &type, "Programmfenster spiegeln\0Bilder (Kneeboard)\0")) {
+  if (ImGui::Combo(T("Typ###type", "Type###type"), &type,
+                   T("Programmfenster spiegeln\0Bilder (Kneeboard)\0", "Mirror a program window\0Images (kneeboard)\0"))) {
     w.type = type == 1 ? "images" : "window";
     if (type == 1 && w.folder.empty()) w.folder = "kneeboard";
     app_.ConfigChanged(false);
   }
 
   if (w.type == "window") {
-    ImGui::InputText("Programm (exe)", &w.processName);
+    ImGui::InputText(T("Programm (exe)###exe", "Program (exe)###exe"), &w.processName);
     if (ImGui::IsItemDeactivatedAfterEdit()) app_.ConfigChanged(false);
     ImGui::SameLine();
-    if (ImGui::Button("Auswählen...")) {
+    if (ImGui::Button(T("Auswählen...", "Choose..."))) {
       windowList_ = WindowCaptureSource::ListWindows();
       ImGui::OpenPopup("##pick");
     }
     if (ImGui::BeginPopup("##pick")) {
-      ImGui::TextDisabled("Laufende Programme (nicht minimiert):");
-      if (windowList_.empty()) ImGui::Text("keine gefunden");
+      ImGui::TextDisabled("%s", T("Laufende Programme (nicht minimiert):", "Running programs (not minimized):"));
+      if (windowList_.empty()) ImGui::TextUnformatted(T("keine gefunden", "none found"));
       for (size_t k = 0; k < windowList_.size(); ++k) {
         const auto& info = windowList_[k];
         std::string label = info.process + "   -   " + info.title + "##" + std::to_string(k);
         if (ImGui::Selectable(label.c_str())) {
           w.processName = info.process;
           w.titleContains.clear();
-          if (w.name.rfind("Fenster ", 0) == 0) w.name = std::filesystem::path(info.process).stem().string();
+          if (w.name.rfind("Fenster ", 0) == 0 || w.name.rfind("Window ", 0) == 0)
+            w.name = std::filesystem::path(info.process).stem().string();
           app_.ConfigChanged(false);
         }
       }
       ImGui::EndPopup();
     }
-    ImGui::InputText("Fenstertitel enthält", &w.titleContains);
+    ImGui::InputText(T("Fenstertitel enthält###title", "Window title contains###title"), &w.titleContains);
     if (ImGui::IsItemDeactivatedAfterEdit()) app_.ConfigChanged(false);
-    ImGui::SetItemTooltip("Optional. Nötig, wenn das Programm mehrere Fenster hat.");
-    if (ImGui::Checkbox("Titelleiste und Rahmen ausblenden", &w.hideTitleBar)) app_.ConfigChanged(false);
-    ImGui::InputInt4("Ränder abschneiden (px)", w.trim);
+    ImGui::SetItemTooltip("%s", T("Optional. Nötig, wenn das Programm mehrere Fenster hat.",
+                                  "Optional. Needed when the program has several windows."));
+    if (ImGui::Checkbox(T("Titelleiste und Rahmen ausblenden###notitle", "Hide title bar and border###notitle"),
+                        &w.hideTitleBar))
+      app_.ConfigChanged(false);
+    ImGui::InputInt4(T("Ränder abschneiden (px)###trim", "Trim edges (px)###trim"), w.trim);
     if (ImGui::IsItemDeactivatedAfterEdit()) app_.ConfigChanged(false);
-    ImGui::SetItemTooltip("links, oben, rechts, unten - z. B. für selbst gezeichnete Titelleisten oder Menüleisten");
-    if (ImGui::Checkbox("Mauszeiger mit aufnehmen", &w.captureCursor)) app_.ConfigChanged(false);
-    if (ImGui::Checkbox("Im VR klickbar", &w.forwardClicks)) app_.ConfigChanged(false);
-    ImGui::SetItemTooltip(
-        "Trigger (Controller) bzw. kurzer Pinch (Hand-Tracking) klickt in das Programm.\n"
-        "Elite behält den Fokus, die Maus bewegt sich nicht.");
+    ImGui::SetItemTooltip("%s", T("links, oben, rechts, unten - z. B. für selbst gezeichnete Titelleisten oder Menüleisten",
+                                  "left, top, right, bottom - e.g. for custom-drawn title bars or menu bars"));
+    if (ImGui::Checkbox(T("Mauszeiger mit aufnehmen###cursor", "Capture the mouse cursor###cursor"), &w.captureCursor))
+      app_.ConfigChanged(false);
+    if (ImGui::Checkbox(T("Im VR bedienbar (Maus)###clicks", "Usable in VR (mouse)###clicks"), &w.forwardClicks))
+      app_.ConfigChanged(false);
+    ImGui::SetItemTooltip("%s", T("Trigger bzw. Pinch = linke Maustaste (klicken, ziehen), Stick = Mausrad.\n"
+                                  "Verschieben dann über Grip oder den Rand des Fensters.\n"
+                                  "Elite behält den Fokus, die Maus bewegt sich nicht.",
+                                  "Trigger or pinch = left mouse button (click, drag), thumbstick = mouse wheel.\n"
+                                  "Move the window with grip or by its border.\n"
+                                  "Elite keeps the focus, the mouse does not move."));
   } else {
-    ImGui::InputText("Bilderordner", &w.folder);
+    ImGui::InputText(T("Bilderordner###folder", "Image folder###folder"), &w.folder);
     if (ImGui::IsItemDeactivatedAfterEdit()) app_.ConfigChanged(false);
     ImGui::SameLine();
-    if (ImGui::Button("Öffnen")) OpenFolder(cfg.Dir() / std::filesystem::path(Utf8ToWide(w.folder)));
-    ImGui::TextDisabled("PNG/JPG/... ablegen. Im VR: rechte/linke Hälfte anklicken = blättern.");
+    if (ImGui::Button(T("Öffnen", "Open"))) OpenFolder(cfg.Dir() / std::filesystem::path(Utf8ToWide(w.folder)));
+    ImGui::TextDisabled("%s", T("PNG/JPG/... ablegen. Im VR: rechte/linke Hälfte anklicken = blättern.",
+                                "Put PNG/JPG/... files there. In VR: click the right/left half = turn pages."));
   }
 
-  ImGui::SeparatorText("Darstellung");
-  if (ImGui::Checkbox("Sichtbar", &w.visible)) app_.ConfigChanged(false);
+  ImGui::SeparatorText(T("Darstellung", "Display"));
+  if (ImGui::Checkbox(T("Sichtbar###visible", "Visible###visible"), &w.visible)) app_.ConfigChanged(false);
   ImGui::SameLine(0, 30 * s);
-  if (ImGui::Checkbox("Gesperrt (nicht verschiebbar)", &w.locked)) app_.ConfigChanged(false);
+  if (ImGui::Checkbox(T("Gesperrt (nicht verschiebbar)###locked", "Locked (not movable)###locked"), &w.locked))
+    app_.ConfigChanged(false);
   int look = w.lookToShow + 1;
-  if (ImGui::Combo("Blickabhängig", &look, "Wie unter \"Allgemein\"\0Immer sichtbar\0Nur beim Hinsehen\0")) {
+  if (ImGui::Combo(T("Blickabhängig###look", "Gaze dependent###look"), &look,
+                   T("Wie unter \"Allgemein\"\0Immer sichtbar\0Nur beim Hinsehen\0",
+                     "As in \"General\"\0Always visible\0Only when looking at it\0"))) {
     w.lookToShow = look - 1;
     app_.ConfigChanged(false);
   }
-  if (ImGui::SliderFloat("Deckkraft", &w.opacity, 0.05f, 1.0f, "%.2f")) app_.ConfigChanged(false);
-  ImGui::SetItemTooltip("Nur wirksam, wenn die OpenXR-Runtime das unterstützt (VDXR derzeit nicht).");
+  if (ImGui::SliderFloat(T("Deckkraft###opacity", "Opacity###opacity"), &w.opacity, 0.05f, 1.0f, "%.2f"))
+    app_.ConfigChanged(false);
+  ImGui::SetItemTooltip("%s", T("Nur wirksam, wenn die OpenXR-Runtime das unterstützt (VDXR derzeit nicht).",
+                                "Only works if the OpenXR runtime supports it (VDXR currently does not)."));
 
-  ImGui::SeparatorText("Position (relativ zur Zentrierung)");
+  ImGui::SeparatorText(T("Position (relativ zur Zentrierung)", "Position (relative to the recentered view)"));
   bool placed = false;
-  placed |= ImGui::SliderFloat("Breite (m)", &w.width, 0.05f, 3.0f, "%.2f");
-  placed |= ImGui::DragFloat3("Position (m)", &w.position.x, 0.005f, -5.0f, 5.0f, "%.3f");
-  ImGui::SetItemTooltip("x = rechts, y = oben, z = hinten (negativ = vor dir)");
-  placed |= ImGui::DragFloat3("Drehung (Grad)", &w.rotation.x, 0.5f, -180.0f, 180.0f, "%.1f");
-  ImGui::SetItemTooltip("Neigung, Drehung, Rollen");
-  if (ImGui::Button("Vor mich setzen")) {
+  placed |= ImGui::SliderFloat(T("Breite (m)###width", "Width (m)###width"), &w.width, 0.05f, 3.0f, "%.2f");
+  placed |= ImGui::DragFloat3("Position (m)###pos", &w.position.x, 0.005f, -5.0f, 5.0f, "%.3f");
+  ImGui::SetItemTooltip("%s", T("x = rechts, y = oben, z = hinten (negativ = vor dir)",
+                                "x = right, y = up, z = back (negative = in front of you)"));
+  placed |= ImGui::DragFloat3(T("Drehung (Grad)###rot", "Rotation (degrees)###rot"), &w.rotation.x, 0.5f, -180.0f,
+                              180.0f, "%.1f");
+  ImGui::SetItemTooltip("%s", T("Neigung, Drehung, Rollen", "pitch, yaw, roll"));
+  if (ImGui::Button(T("Vor mich setzen", "Place in front of me"))) {
     w.position = {0.0f, -0.1f, -0.7f};
     w.rotation = {0.0f, 0.0f, 0.0f};
     placed = true;
@@ -426,17 +464,19 @@ void SettingsWindow::DrawWindowsTab() {
 
 void SettingsWindow::DrawBindingsTab() {
   auto& cfg = app_.Config();
-  ImGui::TextWrapped(
-      "Tastenkombinationen gelten systemweit, auch wenn Elite im Vordergrund ist. Joystick-Tasten werden nicht "
-      "exklusiv gelesen: dieselbe Taste kann in Elite z. B. auf \"HMD zurücksetzen\" liegen.");
+  ImGui::TextWrapped("%s", T("Tastenkombinationen gelten systemweit, auch wenn Elite im Vordergrund ist. Joystick-Tasten "
+                             "werden nicht exklusiv gelesen: dieselbe Taste kann in Elite z. B. auf \"HMD zurücksetzen\" "
+                             "liegen.",
+                             "Key combinations work system-wide, also while Elite is in the foreground. Joystick buttons "
+                             "are not read exclusively: the same button can also be bound in Elite, e.g. to \"Reset HMD\"."));
   ImGui::Spacing();
 
   int remove = -1;
   const ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp;
   if (ImGui::BeginTable("##bindings", 5, flags)) {
-    ImGui::TableSetupColumn("Aktion", ImGuiTableColumnFlags_WidthStretch, 1.3f);
-    ImGui::TableSetupColumn("Fenster", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-    ImGui::TableSetupColumn("Tastatur", ImGuiTableColumnFlags_WidthStretch, 1.2f);
+    ImGui::TableSetupColumn(T("Aktion", "Action"), ImGuiTableColumnFlags_WidthStretch, 1.3f);
+    ImGui::TableSetupColumn(T("Fenster", "Window"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+    ImGui::TableSetupColumn(T("Tastatur", "Keyboard"), ImGuiTableColumnFlags_WidthStretch, 1.2f);
     ImGui::TableSetupColumn("Joystick", ImGuiTableColumnFlags_WidthStretch, 1.6f);
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70 * scale_);
     ImGui::TableHeadersRow();
@@ -449,9 +489,9 @@ void SettingsWindow::DrawBindingsTab() {
       ImGui::TableNextColumn();
       ImGui::SetNextItemWidth(-FLT_MIN);
       int a = ActionIndex(b.action);
-      if (ImGui::BeginCombo("##action", kActions[a].label)) {
+      if (ImGui::BeginCombo("##action", kActions[a].Label())) {
         for (int k = 0; k < kActionCount; ++k)
-          if (ImGui::Selectable(kActions[k].label, k == a)) {
+          if (ImGui::Selectable(kActions[k].Label(), k == a)) {
             b.action = kActions[k].id;
             if (!kActions[k].needsWindow) b.window.clear();
             app_.ConfigChanged(false);
@@ -462,8 +502,8 @@ void SettingsWindow::DrawBindingsTab() {
       ImGui::TableNextColumn();
       if (kActions[ActionIndex(b.action)].needsWindow) {
         ImGui::SetNextItemWidth(-FLT_MIN);
-        if (ImGui::BeginCombo("##window", b.window.empty() ? "(alle)" : b.window.c_str())) {
-          if (ImGui::Selectable("(alle)", b.window.empty())) {
+        if (ImGui::BeginCombo("##window", b.window.empty() ? T("(alle)", "(all)") : b.window.c_str())) {
+          if (ImGui::Selectable(T("(alle)", "(all)"), b.window.empty())) {
             b.window.clear();
             app_.ConfigChanged(false);
           }
@@ -482,14 +522,15 @@ void SettingsWindow::DrawBindingsTab() {
       ImGui::TableNextColumn();
       {
         bool learning = learningBinding_ == i && !learningJoystick_;
-        std::string label = learning ? "Taste drücken... (Esc)" : (b.key.empty() ? "(keine)" : b.key);
+        std::string label = learning ? T("Taste drücken... (Esc)", "Press a key... (Esc)")
+                                     : (b.key.empty() ? T("(keine)", "(none)") : b.key);
         if (ImGui::Button((label + "##key").c_str(), {ImGui::GetContentRegionAvail().x - clearW - 6, 0}) &&
             !app_.Learning()) {
           learningBinding_ = i;
           learningJoystick_ = false;
           app_.StartKeyLearning();
         }
-        ImGui::SetItemTooltip("Klicken und dann die Tastenkombination drücken");
+        ImGui::SetItemTooltip("%s", T("Klicken und dann die Tastenkombination drücken", "Click, then press the key combination"));
         ImGui::SameLine(0, 6);
         if (ImGui::Button("x##keyclr", {clearW, 0})) {
           b.key.clear();
@@ -500,17 +541,18 @@ void SettingsWindow::DrawBindingsTab() {
       ImGui::TableNextColumn();
       {
         bool learning = learningBinding_ == i && learningJoystick_;
-        std::string label = learning ? "Joystick-Taste drücken... (Esc)"
-                                     : (b.button > 0 ? (b.joystick.empty() ? "beliebig" : b.joystick) + "  Taste " +
-                                                           std::to_string(b.button)
-                                                     : "(keine)");
+        std::string label = learning ? T("Joystick-Taste drücken... (Esc)", "Press a joystick button... (Esc)")
+                                     : (b.button > 0 ? (b.joystick.empty() ? T("beliebig", "any") : b.joystick) +
+                                                           T("  Taste ", "  button ") + std::to_string(b.button)
+                                                     : T("(keine)", "(none)"));
         if (ImGui::Button((label + "##joy").c_str(), {ImGui::GetContentRegionAvail().x - clearW - 6, 0}) &&
             !app_.Learning()) {
           learningBinding_ = i;
           learningJoystick_ = true;
           app_.StartJoystickLearning();
         }
-        ImGui::SetItemTooltip("Klicken und dann die Taste am Joystick/HOTAS drücken");
+        ImGui::SetItemTooltip("%s", T("Klicken und dann die Taste am Joystick/HOTAS drücken",
+                                      "Click, then press the button on the joystick/HOTAS"));
         ImGui::SameLine(0, 6);
         if (ImGui::Button("x##joyclr", {clearW, 0})) {
           b.button = 0;
@@ -520,7 +562,7 @@ void SettingsWindow::DrawBindingsTab() {
       }
 
       ImGui::TableNextColumn();
-      if (ImGui::Button("Löschen")) remove = i;
+      if (ImGui::Button(T("Löschen", "Delete"))) remove = i;
       ImGui::PopID();
     }
     ImGui::EndTable();
@@ -533,13 +575,13 @@ void SettingsWindow::DrawBindingsTab() {
     cfg.bindings.erase(cfg.bindings.begin() + remove);
     app_.ConfigChanged(false);
   }
-  if (ImGui::Button("Neue Belegung")) {
+  if (ImGui::Button(T("Neue Belegung", "New binding"))) {
     cfg.bindings.push_back({"recenter", "", "", "", 0});
     app_.ConfigChanged(false);
   }
   if (app_.Learning()) {
     ImGui::SameLine();
-    if (ImGui::Button("Lernen abbrechen")) {
+    if (ImGui::Button(T("Lernen abbrechen", "Cancel learning"))) {
       app_.StopLearning();
       learningBinding_ = -1;
     }
@@ -550,57 +592,73 @@ void SettingsWindow::DrawGeneralTab() {
   auto& cfg = app_.Config();
   ImGui::PushItemWidth(320 * scale_);
   bool c = false;
-  ImGui::SeparatorText("Anzeige");
-  c |= ImGui::Checkbox("Fenster nur beim Hinsehen anzeigen (und bedienbar)", &cfg.lookToShow);
-  c |= ImGui::SliderFloat("Blick-Rand (Grad)", &cfg.lookMarginDeg, 0.0f, 45.0f, "%.0f");
-  ImGui::SetItemTooltip("Größer = Fenster erscheinen früher, wenn man in ihre Richtung schaut");
-  c |= ImGui::SliderFloat("Schärfe", &cfg.sharpness, 0.5f, 2.5f, "%.2f");
-  ImGui::SetItemTooltip("1.0 = ruhiges Bild ohne Flimmern, 1.5-2.0 = schärfer, kann flimmern");
-  c |= ImGui::Checkbox("Zeiger-Punkt anzeigen", &cfg.showCursor);
-  ImGui::SeparatorText("Bedienung");
-  c |= ImGui::Checkbox("Vibration (Controller)", &cfg.haptics);
-  c |= ImGui::SliderFloat("Größe ändern per Stick (Tempo)", &cfg.scaleSpeed, 0.2f, 3.0f, "%.2f");
-  c |= ImGui::SliderFloat("Abstand ändern per Stick (m/s)", &cfg.pushPullSpeed, 0.1f, 2.0f, "%.2f");
-  c |= ImGui::SliderFloat("Breite VR-Menü (m)", &cfg.menuWidth, 0.2f, 1.0f, "%.2f");
+  ImGui::SeparatorText(T("Sprache / Language", "Language / Sprache"));
+  LanguageSlider(app_, "###language", 320 * scale_);
+  ImGui::SeparatorText(T("Anzeige", "Display"));
+  c |= ImGui::Checkbox(T("Fenster nur beim Hinsehen anzeigen (und bedienbar)###look",
+                         "Show windows only when looking at them (and usable)###look"),
+                       &cfg.lookToShow);
+  c |= ImGui::SliderFloat(T("Blick-Rand (Grad)###margin", "Gaze margin (degrees)###margin"), &cfg.lookMarginDeg, 0.0f,
+                          45.0f, "%.0f");
+  ImGui::SetItemTooltip("%s", T("Größer = Fenster erscheinen früher, wenn man in ihre Richtung schaut",
+                                "Larger = windows appear earlier when looking towards them"));
+  c |= ImGui::SliderFloat(T("Schärfe###sharp", "Sharpness###sharp"), &cfg.sharpness, 0.5f, 2.5f, "%.2f");
+  ImGui::SetItemTooltip("%s", T("1.0 = ruhiges Bild ohne Flimmern, 1.5-2.0 = schärfer, kann flimmern",
+                                "1.0 = calm picture without shimmer, 1.5-2.0 = sharper, may shimmer"));
+  c |= ImGui::Checkbox(T("Zeiger-Punkt anzeigen###cursor", "Show pointer dot###cursor"), &cfg.showCursor);
+  ImGui::SeparatorText(T("Bedienung", "Controls"));
+  c |= ImGui::Checkbox(T("Vibration (Controller)###haptics", "Vibration (controllers)###haptics"), &cfg.haptics);
+  c |= ImGui::SliderFloat(T("Größe ändern per Stick (Tempo)###scale", "Resize with thumbstick (speed)###scale"),
+                          &cfg.scaleSpeed, 0.2f, 3.0f, "%.2f");
+  c |= ImGui::SliderFloat(T("Abstand ändern per Stick (m/s)###push", "Push/pull with thumbstick (m/s)###push"),
+                          &cfg.pushPullSpeed, 0.1f, 2.0f, "%.2f");
+  c |= ImGui::SliderFloat(T("Breite VR-Menü (m)###menuw", "VR menu width (m)###menuw"), &cfg.menuWidth, 0.2f, 1.0f,
+                          "%.2f");
   if (c) app_.ConfigChanged(false);
   ImGui::PopItemWidth();
 
   ImGui::SeparatorText("OpenXR-Layer");
   bool registered = LayerRegistration::IsRegistered();
-  ImGui::Text("Status: %s", registered ? "registriert (wird in OpenXR-Spiele geladen)" : "nicht registriert");
-  if (!registered && ImGui::Button("Layer registrieren")) LayerRegistration::Register();
-  if (registered && ImGui::Button("Layer entfernen")) LayerRegistration::Unregister();
+  ImGui::Text("Status: %s", registered ? T("registriert (wird in OpenXR-Spiele geladen)", "registered (loaded into OpenXR games)")
+                                       : T("nicht registriert", "not registered"));
+  if (!registered && ImGui::Button(T("Layer registrieren", "Register layer"))) LayerRegistration::Register();
+  if (registered && ImGui::Button(T("Layer entfernen", "Remove layer"))) LayerRegistration::Unregister();
 
-  ImGui::SeparatorText("Dateien");
+  ImGui::SeparatorText(T("Dateien", "Files"));
   ImGui::TextUnformatted(cfg.file.string().c_str());
-  if (ImGui::Button("Konfigurationsordner öffnen")) OpenFolder(cfg.Dir());
+  if (ImGui::Button(T("Konfigurationsordner öffnen", "Open config folder"))) OpenFolder(cfg.Dir());
   ImGui::SameLine();
   wchar_t local[MAX_PATH]{};
   GetEnvironmentVariableW(L"LOCALAPPDATA", local, MAX_PATH);
-  if (ImGui::Button("Layer-Logs öffnen")) OpenFolder(std::filesystem::path(local) / L"EDOverlayBoard");
+  if (ImGui::Button(T("Layer-Logs öffnen", "Open layer logs"))) OpenFolder(std::filesystem::path(local) / L"EDOverlayBoard");
 }
 
 void SettingsWindow::DrawStatusTab() {
   const auto& st = app_.Status();
   ImGui::SeparatorText("VR");
   if (st.connected) {
-    ImGui::Text("Verbunden mit \"%s\"", st.application.c_str());
+    const char* yes = T("ja", "yes");
+    const char* no = T("nein", "no");
+    ImGui::Text(T("Verbunden mit \"%s\"", "Connected to \"%s\""), st.application.c_str());
     ImGui::Text("Runtime: %s", st.runtime.c_str());
-    ImGui::Text("Controller: %s    Handtracking: %s", st.controllers ? "ja" : "nein", st.handTracking ? "ja" : "nein");
+    ImGui::Text(T("Controller: %s    Handtracking: %s", "Controllers: %s    Hand tracking: %s"), st.controllers ? yes : no,
+                st.handTracking ? yes : no);
   } else {
-    ImGui::TextDisabled("Kein Spiel verbunden. Starte Elite Dangerous im VR-Modus.");
+    ImGui::TextDisabled("%s", T("Kein Spiel verbunden. Starte Elite Dangerous im VR-Modus.",
+                                "No game connected. Start Elite Dangerous in VR mode."));
   }
-  ImGui::Text("Greifen: %s    Alle Fenster: %s", app_.InteractionEnabled() ? "erlaubt" : "gesperrt",
-              app_.AllHidden() ? "ausgeblendet" : "eingeblendet");
+  ImGui::Text(T("Greifen: %s    Alle Fenster: %s", "Grabbing: %s    All windows: %s"),
+              app_.InteractionEnabled() ? T("erlaubt", "allowed") : T("gesperrt", "locked"),
+              app_.AllHidden() ? T("ausgeblendet", "hidden") : T("eingeblendet", "shown"));
 
-  ImGui::SeparatorText("Fenster");
+  ImGui::SeparatorText(T("Fenster", "Windows"));
   const auto& cfg = app_.Config();
   for (int i = 0; i < static_cast<int>(cfg.windows.size()); ++i)
     ImGui::BulletText("%s: %s", cfg.windows[static_cast<size_t>(i)].name.c_str(), app_.WindowStatus(i).c_str());
 
   ImGui::SeparatorText("Joysticks");
   auto joys = app_.JoystickNames();
-  if (joys.empty()) ImGui::TextDisabled("keine gefunden");
+  if (joys.empty()) ImGui::TextDisabled("%s", T("keine gefunden", "none found"));
   for (const auto& j : joys) ImGui::BulletText("%s", j.c_str());
 }
 
@@ -634,6 +692,8 @@ VrMenu::~VrMenu() {
     ImGui::DestroyContext(ctx_);
   }
 }
+
+std::string VrMenu::Status() const { return T("VR-Menü", "VR menu"); }
 
 void VrMenu::SetPointer(bool active, float x, float y) {
   ContextScope scope(ctx_);
@@ -698,12 +758,13 @@ void VrMenu::Draw() {
   const float header = size.y * kHeaderFraction;
   auto* dl = ImGui::GetWindowDrawList();
   dl->AddRectFilled({0, 0}, {size.x, header}, IM_COL32(255, 140, 25, 255));
-  const char* title = "ED Overlay Board   -   hier oder am Rand greifen";
+  const char* title = T("ED Overlay Board   -   hier oder am Rand greifen",
+                        "ED Overlay Board   -   grab here or at the border");
   ImVec2 ts = ImGui::CalcTextSize(title);
   dl->AddText({(size.x - ts.x) * 0.5f, (header - ts.y) * 0.5f}, IM_COL32(20, 20, 24, 255), title);
   ImGui::SetCursorPosY(header + ImGui::GetStyle().ItemSpacing.y);
 
-  ImGui::SeparatorText("Fenster");
+  ImGui::SeparatorText(T("Fenster", "Windows"));
   for (int i = 0; i < static_cast<int>(cfg.windows.size()); ++i) {
     auto& w = cfg.windows[static_cast<size_t>(i)];
     ImGui::PushID(i);
@@ -711,13 +772,13 @@ void VrMenu::Draw() {
     if (ImGui::Checkbox(w.name.c_str(), &v)) app_.Do("toggleWindow", w.name);
     ImGui::SameLine(size.x * 0.48f);
     bool movable = !w.locked;
-    if (ImGui::Checkbox("verschiebbar", &movable)) {
+    if (ImGui::Checkbox(T("verschiebbar###move", "movable###move"), &movable)) {
       w.locked = !movable;
       app_.ConfigChanged(false);
     }
     if (w.type == "window") {
       ImGui::SameLine(size.x * 0.78f);
-      if (ImGui::Checkbox("klickbar", &w.forwardClicks)) app_.ConfigChanged(false);
+      if (ImGui::Checkbox(T("klickbar###click", "clickable###click"), &w.forwardClicks)) app_.ConfigChanged(false);
     } else if (w.type == "images") {
       ImGui::SameLine(size.x * 0.78f);
       if (ImGui::Button(" < ")) app_.Do("prevPage", w.name);
@@ -727,23 +788,31 @@ void VrMenu::Draw() {
     ImGui::PopID();
   }
 
-  ImGui::SeparatorText("Aktionen");
+  ImGui::SeparatorText(T("Aktionen", "Actions"));
   const float third = (ImGui::GetContentRegionAvail().x - 2 * ImGui::GetStyle().ItemSpacing.x) / 3;
-  if (ImGui::Button("Zentrieren", {third, 0})) app_.Do("recenter");
+  if (ImGui::Button(T("Zentrieren###recenter", "Recenter###recenter"), {third, 0})) app_.Do("recenter");
   ImGui::SameLine();
-  if (ImGui::Button(app_.AllHidden() ? "Alle ein" : "Alle aus", {third, 0})) app_.Do("toggleAll");
+  const char* all = app_.AllHidden() ? T("Alle ein###all", "All on###all") : T("Alle aus###all", "All off###all");
+  if (ImGui::Button(all, {third, 0})) app_.Do("toggleAll");
   ImGui::SameLine();
-  if (ImGui::Button(app_.InteractionEnabled() ? "Sperren" : "Entsperren", {third, 0})) app_.Do("toggleInteraction");
+  const char* lock =
+      app_.InteractionEnabled() ? T("Sperren###lock", "Lock###lock") : T("Entsperren###lock", "Unlock###lock");
+  if (ImGui::Button(lock, {third, 0})) app_.Do("toggleInteraction");
 
-  ImGui::SeparatorText("Anzeige");
-  if (ImGui::Checkbox("Nur beim Hinsehen anzeigen", &cfg.lookToShow)) app_.ConfigChanged(false);
-  ImGui::SetNextItemWidth(-FLT_MIN);
-  if (ImGui::SliderFloat("##sharp", &cfg.sharpness, 0.5f, 2.5f, "Schärfe %.2f")) app_.ConfigChanged(false);
+  ImGui::SeparatorText(T("Anzeige", "Display"));
+  if (ImGui::Checkbox(T("Nur beim Hinsehen anzeigen###look", "Only show when looking at it###look"), &cfg.lookToShow))
+    app_.ConfigChanged(false);
+  const float halfW = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) / 2;
+  ImGui::SetNextItemWidth(halfW);
+  if (ImGui::SliderFloat("##sharp", &cfg.sharpness, 0.5f, 2.5f, T("Schärfe %.2f", "Sharpness %.2f")))
+    app_.ConfigChanged(false);
+  ImGui::SameLine();
+  LanguageSlider(app_, "##language", halfW);
 
   ImGui::Spacing();
-  const float halfW = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) / 2;
-  if (ImGui::Button("Einstellungen am PC", {halfW, 0})) app_.OpenSettings();
+  if (ImGui::Button(T("Einstellungen am PC###settings", "Settings on the PC###settings"), {halfW, 0}))
+    app_.OpenSettings();
   ImGui::SameLine();
-  if (ImGui::Button("Menü schließen", {halfW, 0})) app_.Do("toggleMenu");
+  if (ImGui::Button(T("Menü schließen###close", "Close menu###close"), {halfW, 0})) app_.Do("toggleMenu");
   ImGui::End();
 }

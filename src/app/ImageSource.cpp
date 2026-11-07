@@ -1,5 +1,6 @@
 #include "ImageSource.h"
 
+#include "Lang.h"
 #include "Log.h"
 #include "Util.h"
 
@@ -60,10 +61,13 @@ void ImageSource::Rescan() {
 
 void ImageSource::LoadCurrent() {
   dirty_ = false;
+  textEnglish_ = i18n::English();
   if (files_.empty()) {
     texture_ = d3d_.CreateTextTexture(
-        name_, L"No images found.\n\nPut PNG/JPG files into:\n" + folder_.wstring() +
-                   L"\n\nTrigger right/left half = next/previous page.");
+        name_, T(L"Keine Bilder gefunden.\n\nPNG/JPG-Dateien hier ablegen:\n", L"No images found.\n\nPut PNG/JPG files into:\n") +
+                   folder_.wstring() +
+                   T(L"\n\nTrigger auf rechte/linke Hälfte = nächste/vorherige Seite.",
+                     L"\n\nTrigger right/left half = next/previous page."));
     return;
   }
 
@@ -107,7 +111,8 @@ void ImageSource::LoadCurrent() {
   if (ok) texture_ = d3d_.CreateTexture(w, h, pixels.data());
   if (!ok || !texture_) {
     Log("Images '{}': cannot load {}", WideToUtf8(name_), path.string());
-    texture_ = d3d_.CreateTextTexture(name_, L"Cannot load image:\n" + path.filename().wstring());
+    texture_ = d3d_.CreateTextTexture(name_, T(L"Bild kann nicht geladen werden:\n", L"Cannot load image:\n") +
+                                                 path.filename().wstring());
   } else {
     Log("Images '{}': page {}/{} ({})", WideToUtf8(name_), page_ + 1, files_.size(), path.filename().string());
   }
@@ -120,6 +125,7 @@ ID3D11Texture2D* ImageSource::Update(bool& changed) {
     nextScan_ = now + 3s;
     Rescan();
   }
+  if (textEnglish_ != i18n::English() && files_.empty()) dirty_ = true;  // language changed
   if (dirty_) {
     LoadCurrent();
     changed = true;
@@ -128,8 +134,10 @@ ID3D11Texture2D* ImageSource::Update(bool& changed) {
 }
 
 std::string ImageSource::Status() const {
-  if (files_.empty()) return "keine Bilder in " + folder_.string();
-  return std::format("Seite {}/{}: {}", page_ + 1, files_.size(), files_[static_cast<size_t>(page_)].filename().string());
+  if (files_.empty()) return T("keine Bilder in ", "no images in ") + folder_.string();
+  const std::string file = files_[static_cast<size_t>(page_)].filename().string();
+  return i18n::English() ? std::format("Page {}/{}: {}", page_ + 1, files_.size(), file)
+                         : std::format("Seite {}/{}: {}", page_ + 1, files_.size(), file);
 }
 
 void ImageSource::OnClick(float x, float /*y*/) {
