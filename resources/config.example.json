@@ -1,0 +1,50 @@
+{
+  "settings": {
+    "showCursor": true,
+    "haptics": true,
+    "scaleSpeed": 1.0,
+    "pushPullSpeed": 0.75,
+    "lookToShow": true,
+    "lookMarginDeg": 10,
+    "sharpness": 1.0
+  },
+  "windows": [
+    {
+      "name": "Kneeboard",
+      "type": "images",
+      "folder": "kneeboard",
+      "position": [-0.3, -0.35, -0.45],
+      "rotation": [-40.0, 30.0, 0.0],
+      "width": 0.3
+    },
+    {
+      "name": "EDDiscovery",
+      "type": "window",
+      "processName": "EDDiscovery.exe",
+      "hideTitleBar": true,
+      "position": [0.5, 0.05, -0.75],
+      "rotation": [0.0, -35.0, 0.0],
+      "width": 0.6
+    },
+    {
+      "name": "Browser",
+      "type": "window",
+      "titleContains": "Spansh",
+      "position": [0.0, 0.35, -0.9],
+      "rotation": [15.0, 0.0, 0.0],
+      "width": 0.7,
+      "visible": false
+    }
+  ],
+  "bindings": [
+    { "action": "recenter",          "key": "Ctrl+Alt+Numpad5" },
+    { "action": "toggleMenu",        "key": "Ctrl+Alt+M" },
+    { "action": "toggleAll",         "key": "Ctrl+Alt+Numpad0" },
+    { "action": "toggleInteraction", "key": "Ctrl+Alt+NumpadDecimal" },
+    { "action": "toggleWindow",      "key": "Ctrl+Alt+Numpad1", "window": "Kneeboard" },
+    { "action": "toggleWindow",      "key": "Ctrl+Alt+Numpad2", "window": "EDDiscovery" },
+    { "action": "toggleWindow",      "key": "Ctrl+Alt+Numpad3", "window": "Browser" },
+    { "action": "nextPage",          "key": "Ctrl+Alt+Numpad6", "window": "Kneeboard" },
+    { "action": "prevPage",          "key": "Ctrl+Alt+Numpad4", "window": "Kneeboard" }
+  ]
+}
