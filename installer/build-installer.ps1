@@ -35,7 +35,7 @@ if (Test-Path $layerDll) {
 $version = [regex]::Match((Get-Content CMakeLists.txt -Raw), 'project\(EDOverlayBoard VERSION ([0-9.]+)').Groups[1].Value
 Write-Host "ED Overlay Board $version"
 
-& $cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+& $cmake -S . -B build -A x64
 if ($LASTEXITCODE) { throw 'configure failed' }
 & $cmake --build build --config Release
 if ($LASTEXITCODE) { throw 'build failed' }

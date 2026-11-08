@@ -19,10 +19,17 @@ set(DEPS_DIR "${CMAKE_BINARY_DIR}/_deps")
 function(fetch_file url dest)
   if(NOT EXISTS "${dest}")
     message(STATUS "Downloading ${url}")
-    file(DOWNLOAD "${url}" "${dest}.part" STATUS st TLS_VERIFY ON)
-    list(GET st 0 code)
-    if(NOT code EQUAL 0)
+    foreach(attempt 1 2 3)  # GitHub occasionally answers with 5xx
+      file(DOWNLOAD "${url}" "${dest}.part" STATUS st TLS_VERIFY ON)
+      list(GET st 0 code)
+      if(code EQUAL 0)
+        break()
+      endif()
       file(REMOVE "${dest}.part")
+      message(STATUS "  attempt ${attempt} failed (${st})")
+      execute_process(COMMAND ${CMAKE_COMMAND} -E sleep 5)
+    endforeach()
+    if(NOT code EQUAL 0)
       message(FATAL_ERROR "Download failed: ${url} (${st})")
     endif()
     file(RENAME "${dest}.part" "${dest}")
@@ -36,7 +43,7 @@ foreach(h openxr.h openxr_platform.h openxr_platform_defines.h openxr_loader_neg
 endforeach()
 
 set(JSON_DIR "${DEPS_DIR}/json-${JSON_VERSION}")
-fetch_file("https://github.com/nlohmann/json/releases/download/${JSON_VERSION}/json.hpp"
+fetch_file("https://raw.githubusercontent.com/nlohmann/json/${JSON_VERSION}/single_include/nlohmann/json.hpp"
            "${JSON_DIR}/include/nlohmann/json.hpp")
 
 # Dear ImGui (MIT) - settings window and VR quick menu

@@ -216,7 +216,7 @@ Voraussetzungen: Visual Studio 2022 mit „Desktopentwicklung mit C++“, Window
 CMake ≥ 3.20 (in Visual Studio enthalten).
 
 ```
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
 
