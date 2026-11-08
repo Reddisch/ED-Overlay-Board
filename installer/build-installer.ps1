@@ -18,6 +18,20 @@ if (-not $iscc) {
 }
 if (-not $iscc) { throw 'Inno Setup 6 (ISCC.exe) not found - https://jrsoftware.org/isdl.php' }
 
+# A running app locks EDOverlayBoard.exe (linker error LNK1104) - close it first.
+$running = Get-Process EDOverlayBoard -ErrorAction SilentlyContinue
+if ($running) {
+  Write-Host 'Closing the running ED Overlay Board ...'
+  $running | Stop-Process -Force
+  Start-Sleep -Seconds 1
+}
+# A running OpenXR game keeps the layer DLL loaded (and locked).
+$layerDll = Join-Path $root 'build\bin\Release\EDOverlayBoard_Layer.dll'
+if (Test-Path $layerDll) {
+  try { [IO.File]::Open($layerDll, 'Open', 'ReadWrite', 'None').Close() }
+  catch { throw 'EDOverlayBoard_Layer.dll is in use - please close Elite Dangerous (or other OpenXR games) first.' }
+}
+
 $version = [regex]::Match((Get-Content CMakeLists.txt -Raw), 'project\(EDOverlayBoard VERSION ([0-9.]+)').Groups[1].Value
 Write-Host "ED Overlay Board $version"
 
