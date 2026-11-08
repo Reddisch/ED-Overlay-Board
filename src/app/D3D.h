@@ -23,6 +23,8 @@ class D3D {
 
   winrt::com_ptr<ID3D11Texture2D> CreateTexture(uint32_t w, uint32_t h, const void* bgraPixels = nullptr,
                                                 bool renderTarget = false);
+  // dst = src * (rgb, 1); same size, dst needs RENDER_TARGET, src SHADER_RESOURCE
+  bool CopyTinted(ID3D11Texture2D* dst, ID3D11Texture2D* src, const float rgb[3]);
   winrt::com_ptr<ID3D11Texture2D> CreateTextTexture(const std::wstring& title, const std::wstring& body,
                                                     uint32_t w = 800, uint32_t h = 400);
 
@@ -32,4 +34,8 @@ class D3D {
   winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice winrtDevice_{nullptr};
   winrt::com_ptr<ID2D1Factory> d2d_;
   winrt::com_ptr<IDWriteFactory> dwrite_;
+  bool tintInit_ = false;
+  winrt::com_ptr<ID3D11VertexShader> tintVs_;
+  winrt::com_ptr<ID3D11PixelShader> tintPs_;
+  winrt::com_ptr<ID3D11Buffer> tintCb_;
 };

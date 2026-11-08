@@ -2,6 +2,7 @@
 
 #include "Log.h"
 
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 
@@ -31,6 +32,17 @@ std::string WindowConfig::SourceKey() const {
     for (int v : crop) k += "|c" + std::to_string(v);
   for (const auto& i : images) k += "|" + i;
   return k;
+}
+
+void WindowConfig::TintFactor(float out[3]) const {
+  const float b = std::clamp(brightness, 0.0f, 1.0f);
+  for (int i = 0; i < 3; ++i) out[i] = std::clamp(tint[i], 0.0f, 1.0f) * b;
+}
+
+bool WindowConfig::Tinted() const {
+  float f[3];
+  TintFactor(f);
+  return f[0] < 0.999f || f[1] < 0.999f || f[2] < 0.999f;
 }
 
 bool AppConfig::Load(const std::filesystem::path& path) {
@@ -84,6 +96,10 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       c.rotation = ReadVec3(w, "rotation", c.rotation);
       c.width = w.value("width", c.width);
       c.opacity = w.value("opacity", c.opacity);
+      c.tint[0] = c.tint[1] = c.tint[2] = 1.0f;
+      if (w.contains("tint") && w["tint"].is_array() && w["tint"].size() == 3)
+        for (int i = 0; i < 3; ++i) c.tint[i] = w["tint"][i].get<float>();
+      c.brightness = w.value("brightness", c.brightness);
       c.visible = w.value("visible", c.visible);
       c.locked = w.value("locked", c.locked);
       if (w.contains("lookToShow")) c.lookToShow = w["lookToShow"].get<bool>() ? 1 : 0;
@@ -144,6 +160,9 @@ bool AppConfig::Save() {
     w["rotation"] = Vec3Json(c.rotation, 0.1);
     w["width"] = Round(c.width, 0.001);
     if (c.opacity < 0.999f) w["opacity"] = Round(c.opacity, 0.01);
+    if (c.tint[0] < 0.999f || c.tint[1] < 0.999f || c.tint[2] < 0.999f)
+      w["tint"] = json::array({Round(c.tint[0], 0.001), Round(c.tint[1], 0.001), Round(c.tint[2], 0.001)});
+    if (c.brightness < 0.999f) w["brightness"] = Round(c.brightness, 0.01);
     w["visible"] = c.visible;
     if (c.locked) w["locked"] = true;
     if (c.lookToShow >= 0) w["lookToShow"] = c.lookToShow == 1;

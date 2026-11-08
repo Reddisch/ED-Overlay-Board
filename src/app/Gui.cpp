@@ -439,6 +439,27 @@ void SettingsWindow::DrawWindowsTab() {
     app_.ConfigChanged(false);
   ImGui::SetItemTooltip("%s", T("Nur wirksam, wenn die OpenXR-Runtime das unterstützt (VDXR derzeit nicht).",
                                 "Only works if the OpenXR runtime supports it (VDXR currently does not)."));
+  if (ImGui::ColorEdit3(T("Filterfarbe###tint", "Filter color###tint"), w.tint, ImGuiColorEditFlags_NoInputs))
+    app_.ConfigChanged(false);
+  ImGui::SetItemTooltip("%s", T("Wird auf den Inhalt multipliziert: Weiß = unverändert, Grau = dunkler,\n"
+                                "z. B. Bernstein = helle Flächen werden orange statt weiß.",
+                                "Multiplied onto the content: white = unchanged, gray = darker,\n"
+                                "e.g. amber = bright areas become orange instead of white."));
+  ImGui::SameLine(0, 30 * s);
+  if (ImGui::Button(T("Zurücksetzen###tintreset", "Reset###tintreset"))) {
+    w.tint[0] = w.tint[1] = w.tint[2] = 1.0f;
+    w.brightness = 1.0f;
+    app_.ConfigChanged(false);
+  }
+  {
+    float pct = w.brightness * 100.0f;
+    if (ImGui::SliderFloat(T("Helligkeit###bright", "Brightness###bright"), &pct, 10.0f, 100.0f, "%.0f %%")) {
+      w.brightness = pct / 100.0f;
+      app_.ConfigChanged(false);
+    }
+    ImGui::SetItemTooltip("%s", T("Dunkelt den Inhalt ab (funktioniert mit jeder Runtime, auch VDXR).",
+                                  "Dims the content (works with every runtime, including VDXR)."));
+  }
 
   ImGui::SeparatorText(T("Position (relativ zur Zentrierung)", "Position (relative to the recentered view)"));
   bool placed = false;
@@ -666,22 +687,20 @@ void SettingsWindow::DrawStatusTab() {
 // VR menu
 
 VrMenu::VrMenu(App& app) : app_(app) {
-  auto& d3d = app_.Graphics();
-  texture_ = d3d.CreateTexture(kWidth, kHeight, nullptr, true);
-  if (texture_) d3d.Device()->CreateRenderTargetView(texture_.get(), nullptr, rtv_.put());
+  Resize(height_);
 
   ImGuiContext* prev = ImGui::GetCurrentContext();
   ctx_ = ImGui::CreateContext();
   ImGui::SetCurrentContext(ctx_);
   ImGuiIO& io = ImGui::GetIO();
   io.IniFilename = nullptr;
-  io.DisplaySize = {static_cast<float>(kWidth), static_cast<float>(kHeight)};
+  io.DisplaySize = {static_cast<float>(kWidth), static_cast<float>(height_)};
   io.MouseDrawCursor = false;
   ApplyStyle(2.0f);
   ImGui::GetStyle().FramePadding = {18, 12};
   ImGui::GetStyle().ItemSpacing = {18, 14};
   LoadFont(34.0f);
-  ImGui_ImplDX11_Init(d3d.Device(), d3d.Context());
+  ImGui_ImplDX11_Init(app_.Graphics().Device(), app_.Graphics().Context());
   ImGui::SetCurrentContext(prev);
 }
 
@@ -693,12 +712,24 @@ VrMenu::~VrMenu() {
   }
 }
 
+bool VrMenu::Resize(uint32_t height) {
+  auto& d3d = app_.Graphics();
+  auto tex = d3d.CreateTexture(kWidth, height, nullptr, true);
+  winrt::com_ptr<ID3D11RenderTargetView> rtv;
+  if (!tex || FAILED(d3d.Device()->CreateRenderTargetView(tex.get(), nullptr, rtv.put()))) return false;
+  texture_ = tex;
+  rtv_ = rtv;
+  if (height != height_) Log("VR menu: {}x{} px", kWidth, height);
+  height_ = height;
+  return true;
+}
+
 std::string VrMenu::Status() const { return T("VR-Menü", "VR menu"); }
 
 void VrMenu::SetPointer(bool active, float x, float y) {
   ContextScope scope(ctx_);
   if (active)
-    ImGui::GetIO().AddMousePosEvent(x * kWidth, y * kHeight);
+    ImGui::GetIO().AddMousePosEvent(x * kWidth, y * height_);
   else if (pointerWasActive_)
     ImGui::GetIO().AddMousePosEvent(-FLT_MAX, -FLT_MAX);
   if (active || pointerWasActive_) inputPending_ = true;
@@ -732,10 +763,20 @@ ID3D11Texture2D* VrMenu::Update(bool& changed) {
   ContextScope scope(ctx_);
   ImGuiIO& io = ImGui::GetIO();
   io.DeltaTime = std::clamp(dt, 0.001f, 0.25f);
-  ImGui_ImplDX11_NewFrame();
-  ImGui::NewFrame();
-  Draw();
-  ImGui::Render();
+  for (int pass = 0; pass < 2; ++pass) {
+    ImGui_ImplDX11_NewFrame();
+    ImGui::NewFrame();
+    Draw();
+    ImGui::Render();
+    // grow / shrink with the content (more windows = taller menu) instead of scrolling
+    const uint32_t want = std::max(kMinHeight, (static_cast<uint32_t>(std::ceil(neededHeight_)) + 7u) & ~7u);
+    if (pass == 0 && want != height_ && Resize(want)) {
+      io.DisplaySize = {static_cast<float>(kWidth), static_cast<float>(height_)};
+      io.DeltaTime = 0.001f;
+      continue;  // lay out again with the new size
+    }
+    break;
+  }
   auto* ctx = app_.Graphics().Context();
   const float clear[4] = {0.07f, 0.07f, 0.09f, 1.0f};
   ID3D11RenderTargetView* rtv = rtv_.get();
@@ -755,7 +796,7 @@ void VrMenu::Draw() {
   ImGui::Begin("##vrmenu", nullptr, kFullscreen | ImGuiWindowFlags_NoScrollWithMouse);
 
   // header = grab zone for hand tracking
-  const float header = size.y * kHeaderFraction;
+  const float header = kHeaderHeight;
   auto* dl = ImGui::GetWindowDrawList();
   dl->AddRectFilled({0, 0}, {size.x, header}, IM_COL32(255, 140, 25, 255));
   const char* title = T("ED Overlay Board   -   hier oder am Rand greifen",
@@ -788,6 +829,49 @@ void VrMenu::Draw() {
     ImGui::PopID();
   }
 
+  if (!cfg.windows.empty()) {  // filter color / brightness of one window
+    const int n = static_cast<int>(cfg.windows.size());
+    tintWindow_ = std::clamp(tintWindow_, 0, n - 1);
+    auto& w = cfg.windows[static_cast<size_t>(tintWindow_)];
+    ImGui::SeparatorText(T("Helligkeit / Filterfarbe", "Brightness / filter color"));
+    if (ImGui::Button(" < ##tintprev")) tintWindow_ = (tintWindow_ + n - 1) % n;
+    ImGui::SameLine();
+    if (ImGui::Button(" > ##tintnext")) tintWindow_ = (tintWindow_ + 1) % n;
+    ImGui::SameLine();
+    ImGui::TextUnformatted(w.name.c_str());
+    ImGui::SameLine(size.x * 0.48f);
+    struct Preset {
+      const char* de;
+      const char* en;
+      float rgb[3];
+    };
+    static const Preset kPresets[] = {
+        {"Neutral", "Neutral", {1.0f, 1.0f, 1.0f}},   {"Bernstein", "Amber", {1.0f, 0.62f, 0.25f}},
+        {"Rot", "Red", {1.0f, 0.3f, 0.25f}},          {"Grün", "Green", {0.45f, 1.0f, 0.5f}},
+        {"Blau", "Blue", {0.5f, 0.7f, 1.0f}},
+    };
+    // no drag & drop / tooltip: hand jitter while pinching started a color drag instead of a click
+    const ImGuiColorEditFlags swFlags = ImGuiColorEditFlags_NoDragDrop | ImGuiColorEditFlags_NoTooltip;
+    const float sw = ImGui::GetFrameHeight();
+    const float swW = (size.x * 0.52f - ImGui::GetStyle().WindowPadding.x - 4 * ImGui::GetStyle().ItemSpacing.x) / 5;
+    for (int p = 0; p < static_cast<int>(std::size(kPresets)); ++p) {
+      const auto& pr = kPresets[p];
+      ImGui::PushID(p);
+      if (p) ImGui::SameLine();
+      if (ImGui::ColorButton(T(pr.de, pr.en), ImVec4(pr.rgb[0], pr.rgb[1], pr.rgb[2], 1.0f), swFlags, {swW, sw})) {
+        for (int k = 0; k < 3; ++k) w.tint[k] = pr.rgb[k];
+        app_.ConfigChanged(false);
+      }
+      ImGui::PopID();
+    }
+    float pct = w.brightness * 100.0f;
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::SliderFloat("##bright", &pct, 10.0f, 100.0f, T("Helligkeit %.0f %%", "Brightness %.0f %%"))) {
+      w.brightness = pct / 100.0f;
+      app_.ConfigChanged(false);
+    }
+  }
+
   ImGui::SeparatorText(T("Aktionen", "Actions"));
   const float third = (ImGui::GetContentRegionAvail().x - 2 * ImGui::GetStyle().ItemSpacing.x) / 3;
   if (ImGui::Button(T("Zentrieren###recenter", "Recenter###recenter"), {third, 0})) app_.Do("recenter");
@@ -814,5 +898,6 @@ void VrMenu::Draw() {
     app_.OpenSettings();
   ImGui::SameLine();
   if (ImGui::Button(T("Menü schließen###close", "Close menu###close"), {halfW, 0})) app_.Do("toggleMenu");
+  neededHeight_ = ImGui::GetCursorPosY() - ImGui::GetStyle().ItemSpacing.y + ImGui::GetStyle().WindowPadding.y;
   ImGui::End();
 }

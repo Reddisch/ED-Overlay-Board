@@ -63,14 +63,15 @@ class SettingsWindow {
 class VrMenu : public ContentSource {
  public:
   static constexpr uint32_t kWidth = 1000;
-  static constexpr uint32_t kHeight = 820;
-  static constexpr float kHeaderFraction = 0.10f;  // hand tracking grabs here instead of clicking
+  static constexpr uint32_t kMinHeight = 500;   // the height follows the content (no scrollbar)
+  static constexpr float kHeaderHeight = 82.0f;  // hand tracking grabs here instead of clicking
 
   explicit VrMenu(App& app);
   ~VrMenu() override;
 
   ID3D11Texture2D* Update(bool& changed) override;
   std::string Status() const override;
+  float HeaderFraction() const { return kHeaderHeight / static_cast<float>(height_); }
 
   void SetPointer(bool active, float x, float y) override;
   void AddButton(bool down) override;
@@ -78,6 +79,7 @@ class VrMenu : public ContentSource {
 
  private:
   void Draw();
+  bool Resize(uint32_t height);
 
   App& app_;
   ImGuiContext* ctx_ = nullptr;
@@ -86,4 +88,7 @@ class VrMenu : public ContentSource {
   std::chrono::steady_clock::time_point lastRender_{};
   bool inputPending_ = true;
   bool pointerWasActive_ = false;
+  uint32_t height_ = 820;
+  float neededHeight_ = 0.0f;  // content height measured in the last Draw()
+  int tintWindow_ = 0;  // window whose filter color / brightness the menu edits
 };

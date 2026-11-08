@@ -144,6 +144,8 @@ die Spielsteuerung nicht. Handtracking wird genutzt, wenn die Runtime `XR_EXT_ha
 | `rotation` | Grad: `[Neigung, Drehung, Rollen]` |
 | `width` | Breite in Metern (Höhe ergibt sich aus dem Seitenverhältnis) |
 | `opacity` | 0.05 – 1.0 (wenn die Runtime `XR_KHR_composition_layer_color_scale_bias` kann) |
+| `tint` | Filterfarbe `[r, g, b]` (0 – 1), wird auf den Inhalt multipliziert; Weiß = unverändert, z. B. `[1.0, 0.62, 0.25]` = Bernstein |
+| `brightness` | 0.1 – 1.0, dunkelt den Inhalt zusätzlich ab (funktioniert mit jeder Runtime, auch VDXR) |
 | `visible` | beim Start sichtbar |
 | `locked` | Fenster kann nicht gegriffen werden (kein Rahmen; ein Pinch klickt sofort) |
 | `lookToShow` | `true` = nur sichtbar und bedienbar, wenn man in seine Richtung schaut; `false` = immer sichtbar (Standard: `settings.lookToShow`) |

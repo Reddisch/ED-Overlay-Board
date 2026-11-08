@@ -287,7 +287,11 @@ bool App::Publish(Slot& s, ID3D11Texture2D* src) {
   }
 
   if (s.mutex->AcquireSync(0, 5) != S_OK) return false;  // the layer is copying right now; retry next tick
-  d3d_.Context()->CopyResource(s.shared.get(), src);
+  // filter color (dims bright pictures); the VR menu is never tinted
+  float tint[3];
+  s.cfg->TintFactor(tint);
+  if (s.internal || !s.cfg->Tinted() || !d3d_.CopyTinted(s.shared.get(), src, tint))
+    d3d_.Context()->CopyResource(s.shared.get(), src);
   s.mutex->ReleaseSync(0);
   d3d_.Context()->Flush();
   ++s.version;
@@ -332,7 +336,7 @@ void App::SyncShared() {
     }
     s.mouse = mouse;
     w.summonOnShow = s.internal;
-    w.headerFraction = s.internal ? VrMenu::kHeaderFraction : 0.0f;
+    w.headerFraction = s.internal ? vrMenu_->HeaderFraction() : 0.0f;
     w.opacity = std::clamp(c.opacity, 0.05f, 1.0f);
     w.texWidth = s.width;
     w.texHeight = s.height;

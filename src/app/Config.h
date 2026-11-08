@@ -32,6 +32,12 @@ struct WindowConfig {
   Vec3 rotation{0.0f, 0.0f, 0.0f};  // pitch, yaw, roll
   float width = 0.5f;
   float opacity = 1.0f;
+  float tint[3]{1.0f, 1.0f, 1.0f};  // filter color multiplied onto the content (dims bright pictures)
+  float brightness = 1.0f;          // extra dimming factor on top of the tint
+
+  // RGB multiplier sent with the pixels (white = unchanged)
+  void TintFactor(float out[3]) const;
+  bool Tinted() const;
   bool visible = true;
   bool locked = false;
   int lookToShow = -1;  // -1 = use settings.lookToShow, 0 = always visible, 1 = only when looking at it

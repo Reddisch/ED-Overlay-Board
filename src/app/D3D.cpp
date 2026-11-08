@@ -3,6 +3,7 @@
 #include "Log.h"
 
 #include <d3d11_4.h>
+#include <d3dcompiler.h>
 #include <dxgi1_2.h>
 #include <windows.graphics.directx.direct3d11.interop.h>
 
@@ -68,6 +69,77 @@ winrt::com_ptr<ID3D11Texture2D> D3D::CreateTexture(uint32_t w, uint32_t h, const
     return nullptr;
   }
   return tex;
+}
+
+namespace {
+// Full-screen triangle; the pixel shader multiplies the color channels, alpha stays.
+constexpr char kTintHlsl[] = R"(
+cbuffer Tint : register(b0) { float4 tint; };
+Texture2D<float4> src : register(t0);
+float4 vs(uint id : SV_VertexID) : SV_Position {
+  float2 uv = float2((id << 1) & 2, id & 2);
+  return float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
+}
+float4 ps(float4 pos : SV_Position) : SV_Target {
+  float4 c = src.Load(int3(pos.xy, 0));
+  return float4(c.rgb * tint.rgb, c.a);
+}
+)";
+
+winrt::com_ptr<ID3DBlob> Compile(const char* entry, const char* target) {
+  winrt::com_ptr<ID3DBlob> code, errors;
+  HRESULT hr = D3DCompile(kTintHlsl, sizeof(kTintHlsl) - 1, "tint", nullptr, nullptr, entry, target,
+                          D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, code.put(), errors.put());
+  if (FAILED(hr)) {
+    Log("Tint shader {}: compile failed 0x{:08X} {}", entry, static_cast<uint32_t>(hr),
+        errors ? static_cast<const char*>(errors->GetBufferPointer()) : "");
+    return nullptr;
+  }
+  return code;
+}
+}  // namespace
+
+bool D3D::CopyTinted(ID3D11Texture2D* dst, ID3D11Texture2D* src, const float rgb[3]) {
+  if (!tintInit_) {
+    tintInit_ = true;
+    auto vs = Compile("vs", "vs_5_0");
+    auto ps = Compile("ps", "ps_5_0");
+    if (vs) device_->CreateVertexShader(vs->GetBufferPointer(), vs->GetBufferSize(), nullptr, tintVs_.put());
+    if (ps) device_->CreatePixelShader(ps->GetBufferPointer(), ps->GetBufferSize(), nullptr, tintPs_.put());
+    D3D11_BUFFER_DESC bd{};
+    bd.ByteWidth = 16;
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    device_->CreateBuffer(&bd, nullptr, tintCb_.put());
+  }
+  if (!tintVs_ || !tintPs_ || !tintCb_) return false;
+
+  winrt::com_ptr<ID3D11ShaderResourceView> srv;
+  winrt::com_ptr<ID3D11RenderTargetView> rtv;
+  if (FAILED(device_->CreateShaderResourceView(src, nullptr, srv.put()))) return false;
+  if (FAILED(device_->CreateRenderTargetView(dst, nullptr, rtv.put()))) return false;
+
+  D3D11_TEXTURE2D_DESC d{};
+  dst->GetDesc(&d);
+  const float cb[4] = {rgb[0], rgb[1], rgb[2], 1.0f};
+  auto* ctx = context_.get();
+  ctx->UpdateSubresource(tintCb_.get(), 0, nullptr, cb, 0, 0);
+
+  D3D11_VIEWPORT vp{0, 0, static_cast<float>(d.Width), static_cast<float>(d.Height), 0, 1};
+  ID3D11RenderTargetView* rtvs[] = {rtv.get()};
+  ID3D11ShaderResourceView* srvs[] = {srv.get()};
+  ID3D11Buffer* cbs[] = {tintCb_.get()};
+  ctx->ClearState();
+  ctx->OMSetRenderTargets(1, rtvs, nullptr);
+  ctx->RSSetViewports(1, &vp);
+  ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  ctx->VSSetShader(tintVs_.get(), nullptr, 0);
+  ctx->PSSetShader(tintPs_.get(), nullptr, 0);
+  ctx->PSSetShaderResources(0, 1, srvs);
+  ctx->PSSetConstantBuffers(0, 1, cbs);
+  ctx->Draw(3, 0);
+  ctx->ClearState();  // unbind src/dst (ImGui sets its whole state itself)
+  return true;
 }
 
 winrt::com_ptr<ID3D11Texture2D> D3D::CreateTextTexture(const std::wstring& title, const std::wstring& body, uint32_t w,
