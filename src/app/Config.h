@@ -34,6 +34,7 @@ struct WindowConfig {
   float opacity = 1.0f;
   float tint[3]{1.0f, 1.0f, 1.0f};  // filter color multiplied onto the content (dims bright pictures)
   float brightness = 1.0f;          // extra dimming factor on top of the tint
+  int showEffect = 0;               // ipc::ShowEffect (0 = none)
 
   // RGB multiplier sent with the pixels (white = unchanged)
   void TintFactor(float out[3]) const;
@@ -59,6 +60,7 @@ struct AppConfig {
   std::vector<BindingConfig> bindings;
   bool showCursor = true;
   bool haptics = true;
+  float clickVolume = 0.5f;    // click sound in VR (0 = off)
   float scaleSpeed = 1.0f;     // thumbstick resize speed
   float pushPullSpeed = 0.75f; // thumbstick push/pull speed (m/s)
   bool lookToShow = true;      // windows only appear when looking towards them

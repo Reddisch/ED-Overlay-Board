@@ -1,0 +1,30 @@
+// App icon + version info (EDOB_VERSION* come from CMake)
+#include <winver.h>
+
+1 ICON "../../resources/EDOverlayBoard.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION EDOB_VERSION_MAJOR, EDOB_VERSION_MINOR, EDOB_VERSION_PATCH, 0
+PRODUCTVERSION EDOB_VERSION_MAJOR, EDOB_VERSION_MINOR, EDOB_VERSION_PATCH, 0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "CompanyName", "Andreas Rettig"
+      VALUE "FileDescription", "ED Overlay Board"
+      VALUE "FileVersion", EDOB_VERSION
+      VALUE "InternalName", "EDOverlayBoard"
+      VALUE "LegalCopyright", "MIT License"
+      VALUE "OriginalFilename", "EDOverlayBoard.exe"
+      VALUE "ProductName", "ED Overlay Board"
+      VALUE "ProductVersion", EDOB_VERSION
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

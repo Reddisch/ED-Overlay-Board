@@ -116,7 +116,9 @@ SettingsWindow::SettingsWindow(App& app) : app_(app) {
   wc.style = CS_CLASSDC;
   wc.lpfnWndProc = WndProc;
   wc.hInstance = GetModuleHandleW(nullptr);
-  wc.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+  wc.hIcon = LoadIconW(wc.hInstance, MAKEINTRESOURCEW(1));
+  wc.hIconSm = static_cast<HICON>(LoadImageW(wc.hInstance, MAKEINTRESOURCEW(1), IMAGE_ICON,
+                                             GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0));
   wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
   wc.lpszClassName = L"EDOverlayBoardSettings";
   RegisterClassExW(&wc);
@@ -365,7 +367,7 @@ void SettingsWindow::DrawWindowsTab() {
   if (ImGui::Combo(T("Typ###type", "Type###type"), &type,
                    T("Programmfenster spiegeln\0Bilder (Kneeboard)\0", "Mirror a program window\0Images (kneeboard)\0"))) {
     w.type = type == 1 ? "images" : "window";
-    if (type == 1 && w.folder.empty()) w.folder = "kneeboard";
+    if (type == 1 && w.folder.empty()) w.folder = "klemmbrett";
     app_.ConfigChanged(false);
   }
 
@@ -439,6 +441,11 @@ void SettingsWindow::DrawWindowsTab() {
     app_.ConfigChanged(false);
   ImGui::SetItemTooltip("%s", T("Nur wirksam, wenn die OpenXR-Runtime das unterstützt (VDXR derzeit nicht).",
                                 "Only works if the OpenXR runtime supports it (VDXR currently does not)."));
+  if (ImGui::Combo(T("Einblendeffekt###effect", "Show effect###effect"), &w.showEffect,
+                   T("Keiner\0Hologramm\0Zoom\0Röhren-TV\0", "None\0Hologram\0Zoom\0CRT TV\0")))
+    app_.ConfigChanged(false);
+  ImGui::SetItemTooltip("%s", T("Animation beim Ein- und Ausblenden (auch beim Hinsehen / Wegsehen).",
+                                "Animation when the window appears or disappears (also when looking at / away)."));
   if (ImGui::ColorEdit3(T("Filterfarbe###tint", "Filter color###tint"), w.tint, ImGuiColorEditFlags_NoInputs))
     app_.ConfigChanged(false);
   ImGui::SetItemTooltip("%s", T("Wird auf den Inhalt multipliziert: Weiß = unverändert, Grau = dunkler,\n"
@@ -629,6 +636,15 @@ void SettingsWindow::DrawGeneralTab() {
   c |= ImGui::Checkbox(T("Zeiger-Punkt anzeigen###cursor", "Show pointer dot###cursor"), &cfg.showCursor);
   ImGui::SeparatorText(T("Bedienung", "Controls"));
   c |= ImGui::Checkbox(T("Vibration (Controller)###haptics", "Vibration (controllers)###haptics"), &cfg.haptics);
+  {
+    float pct = cfg.clickVolume * 100.0f;
+    if (ImGui::SliderFloat(T("Klickgeräusch (Lautstärke)###clickvol", "Click sound (volume)###clickvol"), &pct, 0.0f,
+                           100.0f, pct < 0.5f ? T("aus", "off") : "%.0f %%")) {
+      cfg.clickVolume = pct / 100.0f;
+      c = true;
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit()) app_.PlayClick();  // preview
+  }
   c |= ImGui::SliderFloat(T("Größe ändern per Stick (Tempo)###scale", "Resize with thumbstick (speed)###scale"),
                           &cfg.scaleSpeed, 0.2f, 3.0f, "%.2f");
   c |= ImGui::SliderFloat(T("Abstand ändern per Stick (m/s)###push", "Push/pull with thumbstick (m/s)###push"),
@@ -681,6 +697,14 @@ void SettingsWindow::DrawStatusTab() {
   auto joys = app_.JoystickNames();
   if (joys.empty()) ImGui::TextDisabled("%s", T("keine gefunden", "none found"));
   for (const auto& j : joys) ImGui::BulletText("%s", j.c_str());
+
+  ImGui::SeparatorText(T("Über", "About"));
+  ImGui::Text("ED Overlay Board %s", EDOB_VERSION);
+  ImGui::TextWrapped("%s", T("Dieses Programm wurde mit Hilfe von KI (Claude von Anthropic) erstellt.",
+                             "This program was created with the help of AI (Claude by Anthropic)."));
+  ImGui::TextDisabled("%s", T("Inoffizielles Fan-Werkzeug, MIT-Lizenz. Elite Dangerous ist eine Marke von Frontier Developments.",
+                              "Unofficial fan tool, MIT license. Elite Dangerous is a trademark of Frontier Developments."));
+  ImGui::TextDisabled(T("Daten: %s", "Data: %s"), WideToUtf8(DataDir().wstring()).c_str());
 }
 
 // =====================================================================================
@@ -833,7 +857,7 @@ void VrMenu::Draw() {
     const int n = static_cast<int>(cfg.windows.size());
     tintWindow_ = std::clamp(tintWindow_, 0, n - 1);
     auto& w = cfg.windows[static_cast<size_t>(tintWindow_)];
-    ImGui::SeparatorText(T("Helligkeit / Filterfarbe", "Brightness / filter color"));
+    ImGui::SeparatorText(T("Fenster-Darstellung", "Window look"));
     if (ImGui::Button(" < ##tintprev")) tintWindow_ = (tintWindow_ + n - 1) % n;
     ImGui::SameLine();
     if (ImGui::Button(" > ##tintnext")) tintWindow_ = (tintWindow_ + 1) % n;
@@ -869,6 +893,22 @@ void VrMenu::Draw() {
     if (ImGui::SliderFloat("##bright", &pct, 10.0f, 100.0f, T("Helligkeit %.0f %%", "Brightness %.0f %%"))) {
       w.brightness = pct / 100.0f;
       app_.ConfigChanged(false);
+    }
+    // show effect: one button per effect, the active one highlighted
+    const char* effects[] = {T("Kein Effekt", "No effect"), T("Hologramm", "Hologram"), "Zoom",
+                             T("Röhren-TV", "CRT TV")};
+    const float ew = (ImGui::GetContentRegionAvail().x - 3 * ImGui::GetStyle().ItemSpacing.x) / 4;
+    for (int e = 0; e < 4; ++e) {
+      if (e) ImGui::SameLine();
+      const bool active = w.showEffect == e;
+      if (active) ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+      ImGui::PushID(e);
+      if (ImGui::Button(effects[e], {ew, 0}) && !active) {
+        w.showEffect = e;
+        app_.ConfigChanged(false);
+      }
+      ImGui::PopID();
+      if (active) ImGui::PopStyleColor();
     }
   }
 

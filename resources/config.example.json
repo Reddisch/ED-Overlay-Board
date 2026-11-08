@@ -10,9 +10,9 @@
   },
   "windows": [
     {
-      "name": "Kneeboard",
+      "name": "Klemmbrett",
       "type": "images",
-      "folder": "kneeboard",
+      "folder": "klemmbrett",
       "position": [-0.3, -0.35, -0.45],
       "rotation": [-40.0, 30.0, 0.0],
       "width": 0.3
@@ -41,10 +41,10 @@
     { "action": "toggleMenu",        "key": "Ctrl+Alt+M" },
     { "action": "toggleAll",         "key": "Ctrl+Alt+Numpad0" },
     { "action": "toggleInteraction", "key": "Ctrl+Alt+NumpadDecimal" },
-    { "action": "toggleWindow",      "key": "Ctrl+Alt+Numpad1", "window": "Kneeboard" },
+    { "action": "toggleWindow",      "key": "Ctrl+Alt+Numpad1", "window": "Klemmbrett" },
     { "action": "toggleWindow",      "key": "Ctrl+Alt+Numpad2", "window": "EDDiscovery" },
     { "action": "toggleWindow",      "key": "Ctrl+Alt+Numpad3", "window": "Browser" },
-    { "action": "nextPage",          "key": "Ctrl+Alt+Numpad6", "window": "Kneeboard" },
-    { "action": "prevPage",          "key": "Ctrl+Alt+Numpad4", "window": "Kneeboard" }
+    { "action": "nextPage",          "key": "Ctrl+Alt+Numpad6", "window": "Klemmbrett" },
+    { "action": "prevPage",          "key": "Ctrl+Alt+Numpad4", "window": "Klemmbrett" }
   ]
 }

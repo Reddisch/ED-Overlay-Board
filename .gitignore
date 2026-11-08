@@ -4,3 +4,4 @@ out/
 *.user
 config.json
 *.log
+dist/

@@ -60,6 +60,8 @@ class OverlaySession {
     uint32_t pendingDown = 0, pendingUp = 0;
     float pendingWheel = 0;
     float opacity = 1.0f;
+    uint32_t effect = 0;  // ipc::ShowEffect
+    float anim = 0.0f;    // 0 = hidden .. 1 = fully shown (show / hide animation)
     std::string name;
     uint32_t texW = 0, texH = 0, texGen = 0, contentVersion = 0;
 
@@ -131,6 +133,7 @@ class OverlaySession {
   void StartGrab(int h, const Hover& hit);
   void ReleaseGrab(int h);
   void UpdateContent();
+  void UpdateAnimations(float dt);
   void UpdatePixelDensity(const XrFrameEndInfo* info);
   int ChooseMipLevel(const Win& w) const;
   bool EnsureMipTexture(Win& w, uint32_t width, uint32_t height);
@@ -182,7 +185,7 @@ class OverlaySession {
   DXGI_FORMAT mipSrvFormat_ = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
 
   Win windows_[ipc::kMaxWindows];
-  Swapchain cursor_, frameHover_, frameZone_, frameGrab_;
+  Swapchain cursor_, frameHover_, frameZone_, frameGrab_, glow_;
 
   Pose center_;
   Pose head_;

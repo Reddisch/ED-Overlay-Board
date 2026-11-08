@@ -16,18 +16,20 @@
 namespace ipc {
 
 constexpr uint32_t kMagic = 0x424F4445;  // "EDOB"
-constexpr uint32_t kVersion = 5;
+constexpr uint32_t kVersion = 6;
 constexpr int kMaxWindows = 16;
 constexpr uint64_t kHeartbeatTimeoutMs = 3000;
 
-inline constexpr wchar_t kMappingName[] = L"Local\\EDOverlayBoard.State.v5";
-inline constexpr wchar_t kMutexName[] = L"Local\\EDOverlayBoard.Mutex.v5";
+inline constexpr wchar_t kMappingName[] = L"Local\\EDOverlayBoard.State.v6";
+inline constexpr wchar_t kMutexName[] = L"Local\\EDOverlayBoard.Mutex.v6";
 
 // Name of a shared D3D11 texture (NT handle + keyed mutex, BGRA8). `generation` is unique
 // within one app instance, so a name is never reused while the layer may still hold it.
 inline std::wstring TextureName(uint32_t appInstance, uint32_t generation) {
   return L"Local\\EDOverlayBoard.Tex." + std::to_wstring(appInstance) + L"." + std::to_wstring(generation);
 }
+
+enum ShowEffect : uint32_t { kEffectNone = 0, kEffectHologram = 1, kEffectZoom = 2, kEffectTv = 3, kEffectCount };
 
 struct Placement {  // relative to the recentered head pose
   float r[3][3];
@@ -65,6 +67,7 @@ struct Window {
   uint32_t summonOnShow;  // when it becomes visible, place it in front of the user
   float headerFraction;   // mouseInput: top part (0..1) that grabs instead of clicking
   float opacity;
+  uint32_t showEffect;  // animation when appearing / disappearing, see ShowEffect
 
   // texture (app -> layer)
   uint32_t texWidth, texHeight;

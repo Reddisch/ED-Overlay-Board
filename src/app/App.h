@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ClickSound.h"
 #include "Config.h"
 #include "ContentSource.h"
 #include "D3D.h"
@@ -35,6 +36,7 @@ class App {
   void Do(const std::string& action, const std::string& window = {});
   std::string WindowStatus(int window) const;
   void SetLanguage(const std::string& language);  // "de" / "en"; applies and saves
+  void PlayClick() { clickSound_.Play(cfg_.clickVolume); }
 
   struct VrStatus {
     bool connected = false;
@@ -98,6 +100,7 @@ class App {
   D3D d3d_;
   HotkeyManager hotkeys_;
   JoystickManager joysticks_;
+  ClickSound clickSound_;
   ipc::SharedState shm_;
   HWND hwnd_ = nullptr;
   bool trayCreated_ = false;

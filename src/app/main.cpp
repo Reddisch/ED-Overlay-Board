@@ -24,7 +24,8 @@ void PrintHelp() {
       "EDOverlayBoard " EDOB_VERSION " - OpenXR overlay windows for Elite Dangerous\n"
       "\n"
       "Usage: EDOverlayBoard.exe [options]\n"
-      "  --config <file>      use another config file (default: config.json next to the exe)\n"
+      "  --config <file>      use another config file (default: config.json next to the exe,\n"
+      "                       or in %LOCALAPPDATA%\\EDOverlayBoard if that folder is read-only)\n"
       "  --install-layer      only register the OpenXR layer (done automatically on every start)\n"
       "  --uninstall-layer    remove the OpenXR layer registration\n"
       "  --joysticks          show joystick names and button numbers (for the config)\n"
@@ -48,7 +49,7 @@ int RunJoystickMonitor() {
 
 // First start: copy the example config so the user has something to edit.
 std::filesystem::path PrepareDefaultConfig() {
-  auto cfg = ExeDir() / "config.json";
+  auto cfg = DataDir() / "config.json";
   std::error_code ec;
   if (!std::filesystem::exists(cfg, ec)) {
     auto example = ExeDir() / "resources" / "config.example.json";
@@ -65,10 +66,22 @@ std::filesystem::path PrepareDefaultConfig() {
 int wmain(int argc, wchar_t** argv) {
   // physical pixels everywhere: needed for exact client-area cropping and a sharp settings window
   SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-  SetConsoleOutputCP(CP_UTF8);
-  SetConsoleCtrlHandler(OnConsoleCtrl, TRUE);
+  // GUI program: print to the console only when started from one (command line options, log)
+  bool console = false;
+  HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+  const DWORD outType = out && out != INVALID_HANDLE_VALUE ? GetFileType(out) : FILE_TYPE_UNKNOWN;
+  if (outType == FILE_TYPE_PIPE || outType == FILE_TYPE_DISK) {
+    console = true;  // output redirected (pipe / file): the CRT already writes there
+  } else if (AttachConsole(ATTACH_PARENT_PROCESS)) {
+    FILE* f = nullptr;
+    freopen_s(&f, "CONOUT$", "w", stdout);
+    freopen_s(&f, "CONOUT$", "w", stderr);
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCtrlHandler(OnConsoleCtrl, TRUE);
+    console = true;
+  }
   winrt::init_apartment(winrt::apartment_type::multi_threaded);
-  LogInit(ExeDir() / "EDOverlayBoard.log", true);
+  LogInit(DataDir() / "EDOverlayBoard.log", console);
 
   std::filesystem::path configPath;
   for (int i = 1; i < argc; ++i) {

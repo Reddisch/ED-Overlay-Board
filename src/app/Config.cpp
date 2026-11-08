@@ -10,6 +10,8 @@ using json = nlohmann::ordered_json;
 
 namespace {
 
+const char* const kEffectNames[] = {"none", "hologram", "zoom", "tv"};
+
 Vec3 ReadVec3(const json& j, const char* key, Vec3 def) {
   if (!j.contains(key) || !j[key].is_array() || j[key].size() != 3) return def;
   return {j[key][0].get<float>(), j[key][1].get<float>(), j[key][2].get<float>()};
@@ -64,6 +66,7 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       const auto& s = raw_["settings"];
       showCursor = s.value("showCursor", showCursor);
       haptics = s.value("haptics", haptics);
+      clickVolume = s.value("clickVolume", clickVolume);
       scaleSpeed = s.value("scaleSpeed", scaleSpeed);
       pushPullSpeed = s.value("pushPullSpeed", pushPullSpeed);
       lookToShow = s.value("lookToShow", lookToShow);
@@ -100,6 +103,10 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       if (w.contains("tint") && w["tint"].is_array() && w["tint"].size() == 3)
         for (int i = 0; i < 3; ++i) c.tint[i] = w["tint"][i].get<float>();
       c.brightness = w.value("brightness", c.brightness);
+      c.showEffect = 0;
+      const std::string effect = w.value("effect", std::string("none"));
+      for (int i = 0; i < static_cast<int>(std::size(kEffectNames)); ++i)
+        if (effect == kEffectNames[i]) c.showEffect = i;
       c.visible = w.value("visible", c.visible);
       c.locked = w.value("locked", c.locked);
       if (w.contains("lookToShow")) c.lookToShow = w["lookToShow"].get<bool>() ? 1 : 0;
@@ -129,6 +136,7 @@ bool AppConfig::Save() {
   json s = json::object();
   s["showCursor"] = showCursor;
   s["haptics"] = haptics;
+  s["clickVolume"] = Round(clickVolume, 0.01);
   s["scaleSpeed"] = Round(scaleSpeed, 0.01);
   s["pushPullSpeed"] = Round(pushPullSpeed, 0.01);
   s["lookToShow"] = lookToShow;
@@ -163,6 +171,8 @@ bool AppConfig::Save() {
     if (c.tint[0] < 0.999f || c.tint[1] < 0.999f || c.tint[2] < 0.999f)
       w["tint"] = json::array({Round(c.tint[0], 0.001), Round(c.tint[1], 0.001), Round(c.tint[2], 0.001)});
     if (c.brightness < 0.999f) w["brightness"] = Round(c.brightness, 0.01);
+    if (c.showEffect > 0 && c.showEffect < static_cast<int>(std::size(kEffectNames)))
+      w["effect"] = kEffectNames[c.showEffect];
     w["visible"] = c.visible;
     if (c.locked) w["locked"] = true;
     if (c.lookToShow >= 0) w["lookToShow"] = c.lookToShow == 1;

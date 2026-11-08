@@ -54,8 +54,8 @@ int App::Run(const std::filesystem::path& configPath) {
   i18n::Apply(cfg_.language);
   if (!Init()) return 1;
 
-  Log("Running. Settings: tray icon (double-click). Start Elite Dangerous in VR - the windows appear there. "
-      "Ctrl+C to quit.");
+  Log("Running. Settings: tray icon (double-click), quit via its menu. Start Elite Dangerous in VR - the windows "
+      "appear there.");
   OpenSettings();
   while (!quit_) {
     // ~60 Hz, but wake up immediately for window/hotkey messages
@@ -338,6 +338,7 @@ void App::SyncShared() {
     w.summonOnShow = s.internal;
     w.headerFraction = s.internal ? vrMenu_->HeaderFraction() : 0.0f;
     w.opacity = std::clamp(c.opacity, 0.05f, 1.0f);
+    w.showEffect = s.internal ? 0u : static_cast<uint32_t>(std::clamp(c.showEffect, 0, int(ipc::kEffectCount) - 1));
     w.texWidth = s.width;
     w.texHeight = s.height;
     w.texGeneration = s.generation;
@@ -362,6 +363,7 @@ void App::SyncShared() {
     if (w.clickSerial != s.seenClick) {
       s.seenClick = w.clickSerial;
       if (!s.internal && !mouse) {
+        clickSound_.Play(cfg_.clickVolume);
         s.source->OnClick(w.clickX, w.clickY);
         MarkDirty();
       }
@@ -372,6 +374,7 @@ void App::SyncShared() {
       uint32_t ups = std::min(w.pointerUpSerial - s.seenUp, 8u);
       s.seenDown = w.pointerDownSerial;
       s.seenUp = w.pointerUpSerial;
+      if (downs > 0) clickSound_.Play(cfg_.clickVolume);
       for (uint32_t k = 0; k < std::max(downs, ups); ++k) {
         if (k < downs) s.source->AddButton(true);
         if (k < ups) s.source->AddButton(false);
@@ -544,7 +547,9 @@ void App::CreateTrayIcon() {
   nid.uID = 1;
   nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
   nid.uCallbackMessage = kTrayMessage;
-  nid.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+  nid.hIcon = static_cast<HICON>(LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1), IMAGE_ICON,
+                                            GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0));
+  if (!nid.hIcon) nid.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
   wcscpy_s(nid.szTip, T(L"ED Overlay Board (Doppelklick = Einstellungen)", L"ED Overlay Board (double-click = settings)"));
   trayCreated_ = Shell_NotifyIconW(NIM_ADD, &nid) != FALSE;
 }

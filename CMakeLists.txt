@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(EDOverlayBoard VERSION 0.2.0 LANGUAGES CXX)
+project(EDOverlayBoard VERSION 0.3.0 LANGUAGES CXX RC)
 
 if(NOT WIN32)
   message(FATAL_ERROR "EDOverlayBoard is Windows-only (D3D11, Windows.Graphics.Capture, DirectInput).")
@@ -57,7 +57,9 @@ add_library(imgui STATIC
 target_include_directories(imgui PUBLIC "${IMGUI_DIR}" "${IMGUI_DIR}/backends" "${IMGUI_DIR}/misc/cpp")
 target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 
-set(COMMON_DEFS UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN EDOB_VERSION="${PROJECT_VERSION}")
+set(COMMON_DEFS UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN EDOB_VERSION="${PROJECT_VERSION}"
+  EDOB_VERSION_MAJOR=${PROJECT_VERSION_MAJOR} EDOB_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+  EDOB_VERSION_PATCH=${PROJECT_VERSION_PATCH})
 set(COMMON_OPTS /W4 /utf-8 /permissive- /bigobj /EHsc)
 
 # ---------------------------------------------------------------------------
@@ -74,13 +76,18 @@ add_executable(EDOverlayBoard
   src/app/JoystickManager.cpp
   src/app/LayerRegistration.cpp
   src/app/WindowCaptureSource.cpp
+  src/app/ClickSound.cpp
+  src/app/app.rc
   src/common/Log.cpp
 )
+# tray app: no console window (command line options attach to the calling console)
+set_target_properties(EDOverlayBoard PROPERTIES WIN32_EXECUTABLE TRUE)
+target_link_options(EDOverlayBoard PRIVATE /ENTRY:wmainCRTStartup)
 target_include_directories(EDOverlayBoard PRIVATE src/app src/common "${JSON_DIR}/include")
 target_compile_definitions(EDOverlayBoard PRIVATE ${COMMON_DEFS} DIRECTINPUT_VERSION=0x0800)
 target_compile_options(EDOverlayBoard PRIVATE ${COMMON_OPTS})
 target_link_libraries(EDOverlayBoard PRIVATE imgui
-  d3d11 dxgi d2d1 dwrite dwmapi dinput8 dxguid windowscodecs windowsapp advapi32 shell32 shcore d3dcompiler)
+  d3d11 dxgi d2d1 dwrite dwmapi dinput8 dxguid windowscodecs windowsapp advapi32 shell32 shcore d3dcompiler winmm)
 install(FILES "${IMGUI_DIR}/LICENSE.txt" DESTINATION licenses RENAME imgui-LICENSE.txt)
 
 # ---------------------------------------------------------------------------

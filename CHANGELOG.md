@@ -1,0 +1,20 @@
+# Changelog
+
+## 0.3.0
+
+- Installer (Inno Setup, per user, no admin rights): registers the OpenXR layer, optional desktop
+  shortcut and autostart; uninstalling removes the layer registration
+- App runs without a console window, has its own icon and version info
+- Data folder falls back to `%LOCALAPPDATA%\EDOverlayBoard` when the program folder is read-only
+- Per-window filter color and brightness (dims bright pictures, works with every runtime incl. VDXR)
+- Per-window show/hide effects: hologram, zoom, CRT TV
+- Click sound for clicks in VR (volume adjustable, 0 = off)
+- VR menu: window look section (filter color, brightness, effect); height follows its content
+- Mouse input for program windows (click, drag, wheel), German/English UI
+- Example config: first window renamed to "Klemmbrett"
+- Note: this program was created with the help of AI (Claude by Anthropic)
+
+## 0.2.0
+
+- First version: OpenXR API layer + companion app, window capture, image pages, grabbing with
+  controllers and hand tracking, hotkeys and joystick buttons, VR menu

@@ -54,6 +54,7 @@ OverlaySession::~OverlaySession() {
   DestroySwapchain(frameHover_);
   DestroySwapchain(frameZone_);
   DestroySwapchain(frameGrab_);
+  DestroySwapchain(glow_);
   input_.Destroy();
   if (localSpace_ != XR_NULL_HANDLE) next_.xrDestroySpace(localSpace_);
   if (viewSpace_ != XR_NULL_HANDLE) next_.xrDestroySpace(viewSpace_);
@@ -110,8 +111,9 @@ void OverlaySession::Init() {
   CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 140, 25, 70)), frameHover_);
   CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 140, 25, 190)), frameZone_);
   CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 140, 25, 255)), frameGrab_);
+  CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 205, 130, 255)), glow_);
 
-  quads_.reserve(ipc::kMaxWindows * 2 + 4);
+  quads_.reserve(ipc::kMaxWindows * 4 + 4);
   colorScales_.reserve(ipc::kMaxWindows + 1);
   Log("Overlay session ready (swapchain format {})", format_);
 }
@@ -276,6 +278,7 @@ void OverlaySession::SyncIpc() {
     w.mouse = sw.mouseInput != 0;
     w.headerFraction = sw.headerFraction;
     w.opacity = sw.opacity;
+    w.effect = sw.showEffect < ipc::kEffectCount ? sw.showEffect : 0;
     w.texW = sw.texWidth;
     w.texH = sw.texHeight;
     w.texGen = sw.texGeneration;
@@ -760,6 +763,40 @@ void OverlaySession::UpdatePixelDensity(const XrFrameEndInfo* info) {
   }
 }
 
+namespace {
+constexpr float kLineHeight = 0.004f;  // hologram: height of the glowing line (m)
+
+float EaseOutCubic(float t) { return 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t); }
+float EaseOutBack(float t) {  // slight overshoot
+  constexpr float c1 = 1.70158f, c3 = c1 + 1.0f;
+  return 1.0f + c3 * (t - 1) * (t - 1) * (t - 1) + c1 * (t - 1) * (t - 1);
+}
+float EffectDuration(uint32_t effect) {
+  switch (effect) {
+    case ipc::kEffectHologram: return 0.55f;
+    case ipc::kEffectZoom: return 0.30f;
+    case ipc::kEffectTv: return 0.35f;
+    default: return 0.0f;
+  }
+}
+}  // namespace
+
+void OverlaySession::UpdateAnimations(float dt) {
+  for (int i = 0; i < ipc::kMaxWindows; ++i) {
+    Win& w = windows_[i];
+    const float target = Shown(i) ? 1.0f : 0.0f;
+    const float dur = EffectDuration(w.effect);
+    if (!w.active || !w.hasImage || dur <= 0.0f) {
+      w.anim = w.active && w.hasImage ? target : 0.0f;
+      continue;
+    }
+    if (w.anim < target)
+      w.anim = std::min(target, w.anim + dt / dur);
+    else if (w.anim > target)
+      w.anim = std::max(target, w.anim - dt / (dur * 0.7f));  // hiding is a bit faster
+  }
+}
+
 int OverlaySession::ChooseMipLevel(const Win& w) const {
   if (w.mipLevels <= 1 || pixelsPerRadian_ <= 0.0f || !headValid_) return std::min(w.level, int(w.mipLevels) - 1);
   float dist = std::max((World(w).t - head_.t).Length(), 0.1f);
@@ -802,23 +839,72 @@ void OverlaySession::BuildLayers(const XrFrameEndInfo* info) {
 
   for (int i = 0; i < ipc::kMaxWindows; ++i) {
     const Win& w = windows_[i];
-    if (!Shown(i)) continue;
+    if (w.anim <= 0.0f || !w.active || !w.hasImage) continue;  // Shown(), or still animating out
     Pose world = World(w);
     float h = w.Height();
+    if (h <= 0.0f) continue;
+
+    // show / hide animation: visible part (crop = no distortion) or scale (squash) of the quad
+    const float a = std::clamp(w.anim, 0.0f, 1.0f);
+    float fx = 1.0f, fy = 1.0f;  // visible fraction (cropped)
+    float sx = 1.0f, sy = 1.0f;  // extra scale of the quad (squashed / zoomed)
+    bool lineOnly = false, edges = false;
+    if (a < 1.0f) {
+      switch (w.effect) {
+        case ipc::kEffectHologram: {  // a glowing line spreads out, then the window opens from it
+          constexpr float kSplit = 0.35f;
+          const float line = std::min(1.0f, kLineHeight / h);
+          if (a < kSplit) {
+            fx = std::max(0.02f, EaseOutCubic(a / kSplit));
+            fy = line;
+            lineOnly = true;
+          } else {
+            fy = std::max(line, EaseOutCubic((a - kSplit) / (1.0f - kSplit)));
+            edges = true;
+          }
+          break;
+        }
+        case ipc::kEffectZoom:
+          sx = sy = std::max(0.02f, EaseOutBack(a));
+          break;
+        case ipc::kEffectTv:  // a bright line widens, then stretches open (squashed picture)
+          sx = std::max(0.02f, EaseOutCubic(std::min(1.0f, a * 2.5f)));
+          sy = std::max(0.01f, EaseOutCubic(std::clamp(a * 1.6f - 0.4f, 0.0f, 1.0f)));
+          break;
+        default:
+          break;
+      }
+    }
+    const float qw = w.width * fx * sx, qh = h * fy * sy;
+
+    if (lineOnly) {  // first phase of the hologram: just the glowing line
+      addQuad(glow_, world, qw, kLineHeight, true);
+      continue;
+    }
 
     // Frame behind the window = the grab margin: faint while pointing at the window, bright on
     // the grab zone, solid while held.
     bool grabbed = grabs_[0].window == i || grabs_[1].window == i;
     bool hovered = hover_[0].window == i || hover_[1].window == i;
     bool onZone = (hover_[0].window == i && hover_[0].zone) || (hover_[1].window == i && hover_[1].zone);
-    if ((grabbed || hovered) && !w.locked) {  // locked windows: no frame at all
+    if ((grabbed || hovered) && !w.locked && a >= 1.0f) {  // locked windows: no frame at all
       const float m = GrabMargin(w);
       addQuad(grabbed ? frameGrab_ : onZone ? frameZone_ : frameHover_, world * Pose::Translation({0, 0, -0.002f}),
               w.width + 2 * m, h + 2 * m, true);
     }
 
     bool fade = colorScaleBias_ && w.opacity < 0.999f;
-    auto* q = addQuad(w.swapchain, world, w.width, h, !w.opaque || fade);
+    auto* q = addQuad(w.swapchain, world, qw, qh, !w.opaque || fade);
+    if (q && (fx < 1.0f || fy < 1.0f)) {  // crop to the middle part of the picture
+      const int32_t W = static_cast<int32_t>(w.swapchain.width), H = static_cast<int32_t>(w.swapchain.height);
+      const int32_t cw = std::clamp(static_cast<int32_t>(std::lround(W * fx)), 1, W);
+      const int32_t ch = std::clamp(static_cast<int32_t>(std::lround(H * fy)), 1, H);
+      q->subImage.imageRect = {{(W - cw) / 2, (H - ch) / 2}, {cw, ch}};
+    }
+    if (edges) {  // hologram: glowing edges travel outwards while it opens
+      for (float side : {0.5f, -0.5f})
+        addQuad(glow_, world * Pose::Translation({0, side * qh, 0.001f}), qw, kLineHeight * 0.6f, true);
+    }
     if (q && fade && colorScales_.size() < colorScales_.capacity()) {
       XrCompositionLayerColorScaleBiasKHR cs{XR_TYPE_COMPOSITION_LAYER_COLOR_SCALE_BIAS_KHR};
       cs.colorScale = {1, 1, 1, w.opacity};
@@ -861,6 +947,7 @@ XrResult OverlaySession::EndFrame(const XrFrameEndInfo* info) {
     UpdateInteraction(dt);
     UpdatePixelDensity(info);
     UpdateContent();
+    UpdateAnimations(dt);
     BuildLayers(info);
 
     size_t shown = 0;  // windows only (cursor/frame quads come and go while pointing)

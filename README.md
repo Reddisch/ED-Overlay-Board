@@ -8,6 +8,11 @@ Kneeboard-Seiten, EDDiscovery, EDMC, ein Browser mit Inara/Spansh – direkt im 
 or hand tracking; recentering via keyboard hotkeys or HOTAS/joystick buttons. Works with any OpenXR
 runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculus, WMR, Pimax …); Elite Dangerous needs OpenComposite.*
 
+> **Hinweis / Note:** Dieses Programm wurde mit Hilfe von KI (Claude von Anthropic) erstellt –
+> Code, Texte und Installer. Getestet wurde es vom Autor mit Quest 3, Virtual Desktop (VDXR) und Elite Dangerous.
+> *This program was created with the help of AI (Claude by Anthropic) – code, texts and installer.
+> It was tested by the author with Quest 3, Virtual Desktop (VDXR) and Elite Dangerous.*
+
 ## Funktionen
 
 - **Mehrere Fenster gleichzeitig**, jedes einzeln konfigurierbar
@@ -21,7 +26,11 @@ runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculus, WMR, Pimax …); Elite Dang
 - **Blickabhängig:** Fenster erscheinen nur, wenn man in ihre Richtung schaut, und sind nur dann bedienbar
 - **Einstellungsfenster** (Tray-Icon): Fenster anlegen/bearbeiten, Programm aus Liste wählen, Tastatur- und
   Joystick-Tasten per Tastendruck „lernen“ – alles wirkt sofort
-- **VR-Menü** (z. B. Strg+Alt+M): Fenster ein/aus, Zentrieren, Sperren, Schärfe – mit Controller oder Pinch bedienbar
+- **VR-Menü** (z. B. Strg+Alt+M): Fenster ein/aus, Zentrieren, Sperren, Schärfe, Helligkeit, Effekte – mit Controller oder Pinch bedienbar
+- **Abdunkeln mit Filterfarbe** pro Fenster (z. B. helle PNGs gegen Blenden) – funktioniert mit jeder Runtime, auch VDXR
+- **Einblendeffekte** pro Fenster: Hologramm, Zoom, Röhren-TV
+- **Klickgeräusch** bei Klicks im VR (Lautstärke einstellbar)
+- **Deutsch / Englisch**
 - **Titelleiste ausblenden** und Ränder abschneiden für gespiegelte Fenster
 - **Ruhiges Bild:** Inhalte werden per Mipmapping passend zur Displayauflösung vorgefiltert (kein Flimmern bei großen Quellen wie 4K-Kneeboards). `settings.sharpness`: 1.0 = ruhig, 1.5–2 = schärfer
 - Layout wird automatisch gespeichert, Zeiger-Cursor, Rahmen beim Anvisieren, Haptik
@@ -43,7 +52,7 @@ Sie zeigt nur dann etwas an, wenn die Begleit-App läuft.
 |---|---|
 | Windows 10 (2004+) / 11 | |
 | eine **OpenXR-Runtime** | Virtual Desktop (**VDXR**), SteamVR, Meta/Oculus, WMR, Pimax, Varjo … |
-| **OpenComposite** für Elite Dangerous | Elite spricht nur OpenVR. OpenComposite übersetzt OpenVR → OpenXR. |
+| Elite Dangerous über **OpenXR** | Elite spricht nur OpenVR – z. B. **OpenComposite** übersetzt OpenVR → OpenXR (oder ein anderer Weg zu OpenXR) |
 | Spiel nutzt **Direct3D 11** | trifft auf Elite Dangerous zu |
 
 ### Elite Dangerous mit OpenComposite einrichten
@@ -56,13 +65,29 @@ Sie zeigt nur dann etwas an, wenn die Begleit-App läuft.
 
 ## Installation & Start
 
-1. Release-ZIP entpacken (z. B. nach `C:\Tools\EDOverlayBoard`).
-2. `EDOverlayBoard.exe` starten – vor oder nach dem Spiel, egal.
-   - Beim ersten Start wird der OpenXR-Layer für deinen Benutzer registriert (kein Admin nötig)
-     und `config.json` aus `resources\config.example.json` erzeugt.
-3. Elite starten – die Fenster erscheinen vor dir. Konsole zeigt `VR connected: …`.
+**Mit Installer (empfohlen):**
 
-Layer wieder entfernen: `EDOverlayBoard.exe --uninstall-layer`.
+1. `EDOverlayBoard-Setup-<version>.exe` von der Releases-Seite herunterladen und ausführen.
+   Es werden keine Administratorrechte benötigt: installiert wird nach
+   `%LOCALAPPDATA%\Programs\ED Overlay Board`, der OpenXR-Layer wird für deinen Benutzer registriert.
+   Optional: Desktop-Verknüpfung und „Mit Windows starten“.
+2. ED Overlay Board läuft danach im Infobereich der Taskleiste (Tray-Icon).
+3. Elite starten – die Fenster erscheinen vor dir. Im Reiter *Status* steht dann „Verbunden mit …“.
+
+Deinstallieren über Windows-Einstellungen → Apps. Dabei wird der Layer abgemeldet;
+`config.json` und deine Bilder bleiben im Installationsordner erhalten.
+
+Windows SmartScreen kann beim ersten Start warnen, weil der Installer nicht signiert ist
+(„Weitere Informationen“ → „Trotzdem ausführen“).
+
+**Ohne Installer (ZIP):** Release-ZIP entpacken (z. B. nach `C:\Tools\EDOverlayBoard`) und
+`EDOverlayBoard.exe` starten. Beim ersten Start wird der Layer registriert und `config.json` aus
+`resources\config.example.json` erzeugt. Layer wieder entfernen: `EDOverlayBoard.exe --uninstall-layer`.
+
+`config.json`, Log und Bilderordner liegen neben der exe. Ist dieser Ordner schreibgeschützt
+(z. B. unter `C:\Program Files`), verwendet die App stattdessen `%LOCALAPPDATA%\EDOverlayBoard`.
+Der genaue Ort steht im Reiter *Status* unter „Über“.
+
 Den Layer kurzfristig abschalten: Umgebungsvariable `DISABLE_XR_APILAYER_EDOB_OVERLAY_BOARD=1`.
 
 ## Einstellungen
@@ -70,11 +95,12 @@ Den Layer kurzfristig abschalten: Umgebungsvariable `DISABLE_XR_APILAYER_EDOB_OV
 - **Am PC:** Doppelklick auf das Tray-Icon (oder erneuter Start der exe) öffnet das Einstellungsfenster.
   Reiter *Fenster* (anlegen, löschen, Programm auswählen, Titelleiste ausblenden, Position/Größe),
   *Tasten* (Aktion wählen, „Tastatur“/„Joystick“ anklicken und die Taste drücken, Esc = abbrechen),
-  *Allgemein* und *Status*. Schließen des Fensters beendet die App nicht – „Beenden“ im Tray-Menü.
+  *Allgemein* (u. a. Klickgeräusch) und *Status*. Schließen des Fensters beendet die App nicht – „Beenden“ im Tray-Menü.
 - **Im VR:** Strg+Alt+M (oder eine eigene Belegung „VR-Menü ein/aus“) holt das Menü vor dich.
   Controller: Trigger = klicken, Stick = scrollen, Grip = verschieben.
   Handtracking: Pinch = klicken, Pinch auf die orange Kopfleiste oder den Rand = verschieben.
   Pro Fenster lässt sich dort umschalten: sichtbar, verschiebbar und (bei Programmfenstern) klickbar.
+  Unter „Fenster-Darstellung“ (Fenster mit `<` `>` wählen): Filterfarbe, Helligkeit und Einblendeffekt.
 - **Sprache:** Deutsch oder Englisch, per Schieberegler im Reiter *Allgemein* oder im VR-Menü
   (Standard: Windows-Anzeigesprache).
 
@@ -108,10 +134,10 @@ die Spielsteuerung nicht. Handtracking wird genutzt, wenn die Runtime `XR_EXT_ha
 
 ```json
 {
-  "settings": { "language": "de", "showCursor": true, "haptics": true, "scaleSpeed": 1.0, "pushPullSpeed": 0.75,
-                "lookToShow": true, "lookMarginDeg": 10, "sharpness": 1.0 },
+  "settings": { "language": "de", "showCursor": true, "haptics": true, "clickVolume": 0.5, "scaleSpeed": 1.0,
+                "pushPullSpeed": 0.75, "lookToShow": true, "lookMarginDeg": 10, "sharpness": 1.0 },
   "windows": [
-    { "name": "Kneeboard", "type": "images", "folder": "kneeboard",
+    { "name": "Klemmbrett", "type": "images", "folder": "klemmbrett",
       "position": [-0.3, -0.35, -0.45], "rotation": [-40, 30, 0], "width": 0.3 },
     { "name": "EDDiscovery", "type": "window", "processName": "EDDiscovery.exe",
       "position": [0.5, 0.05, -0.75], "rotation": [0, -35, 0], "width": 0.6 },
@@ -121,7 +147,7 @@ die Spielsteuerung nicht. Handtracking wird genutzt, wenn die Runtime `XR_EXT_ha
   "bindings": [
     { "action": "recenter", "key": "Ctrl+Alt+Numpad5" },
     { "action": "recenter", "joystick": "VKB", "button": 12 },
-    { "action": "toggleWindow", "window": "Kneeboard", "key": "Ctrl+Alt+Numpad1" }
+    { "action": "toggleWindow", "window": "Klemmbrett", "key": "Ctrl+Alt+Numpad1" }
   ]
 }
 ```
@@ -146,6 +172,7 @@ die Spielsteuerung nicht. Handtracking wird genutzt, wenn die Runtime `XR_EXT_ha
 | `opacity` | 0.05 – 1.0 (wenn die Runtime `XR_KHR_composition_layer_color_scale_bias` kann) |
 | `tint` | Filterfarbe `[r, g, b]` (0 – 1), wird auf den Inhalt multipliziert; Weiß = unverändert, z. B. `[1.0, 0.62, 0.25]` = Bernstein |
 | `brightness` | 0.1 – 1.0, dunkelt den Inhalt zusätzlich ab (funktioniert mit jeder Runtime, auch VDXR) |
+| `effect` | Einblendeffekt: `none`, `hologram`, `zoom` oder `tv` (läuft auch beim Ausblenden und beim Hin-/Wegsehen) |
 | `visible` | beim Start sichtbar |
 | `locked` | Fenster kann nicht gegriffen werden (kein Rahmen; ein Pinch klickt sofort) |
 | `lookToShow` | `true` = nur sichtbar und bedienbar, wenn man in seine Richtung schaut; `false` = immer sichtbar (Standard: `settings.lookToShow`) |
@@ -176,7 +203,7 @@ Das gespiegelte Fenster darf hinter dem Spiel liegen, aber **nicht minimiert** s
 
 ## Fehlersuche
 
-- App-Log: `EDOverlayBoard.log` neben der exe
+- App-Log: `EDOverlayBoard.log` im Datenordner (neben der exe bzw. `%LOCALAPPDATA%\EDOverlayBoard`)
 - Layer-Log (im Spiel): `%LOCALAPPDATA%\EDOverlayBoard\layer-<spiel>.log`
 - Keine Fenster im Spiel → steht im Layer-Log überhaupt etwas? Wenn nicht, läuft das Spiel nicht über
   OpenXR (OpenComposite prüfen) oder der Layer ist nicht registriert (App einmal starten).
@@ -198,7 +225,14 @@ Ergebnis in `build\bin\Release\`: `EDOverlayBoard.exe`, `EDOverlayBoard_Layer.dl
 
 Hinweis: Solange ein OpenXR-Spiel läuft, ist die Layer-DLL gesperrt und kann nicht neu gebaut werden.
 
-Ein Git-Tag `v*` lässt die GitHub Action ein Release-ZIP erzeugen.
+**Installer bauen** (benötigt zusätzlich [Inno Setup 6](https://jrsoftware.org/isdl.php)):
+
+```
+powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
+```
+
+Ergebnis: `dist\EDOverlayBoard-Setup-<version>.exe`. Ein Git-Tag `v*` lässt die GitHub Action
+ein Release mit ZIP und Installer erzeugen.
 
 ## Projektstruktur
 
@@ -211,13 +245,16 @@ src/app/      Begleit-App
   HotkeyManager.*          globale Tastatur-Hotkeys
   JoystickManager.*        DirectInput-Joystick-Tasten
   LayerRegistration.*      OpenXR-Implicit-Layer in HKCU eintragen
-  Config.*, D3D.*          config.json, D3D11 + Platzhalter-Panels
+  Config.*, D3D.*          config.json, D3D11, Platzhalter-Panels, Filterfarbe (Shader)
+  Gui.*                    Einstellungsfenster und VR-Menü (Dear ImGui)
+  ClickSound.*             Klickgeräusch
 src/layer/    OpenXR-API-Layer (DLL)
   Layer.cpp                Loader-Verhandlung, abgefangene OpenXR-Funktionen
   OverlaySession.*         Swapchains, Quad-Layer, Greifen/Skalieren/Zentrieren
   Input.*                  eigene Actions (in die Spiel-Bindings eingehängt), Handtracking
 src/common/   Ipc.h (Shared-Memory-Protokoll), VrMath.h, Log
-resources/    EDOverlayBoard_Layer.json (Layer-Manifest), config.example.json
+resources/    EDOverlayBoard_Layer.json (Layer-Manifest), config.example.json, Icon
+installer/    Inno-Setup-Skript und Build-Skript für den Installer
 ```
 
 ## Roadmap
@@ -234,3 +271,6 @@ Lizenz: MIT (siehe [LICENSE](LICENSE)). Verwendet [Dear ImGui](https://github.co
 Elite Dangerous ist eine Marke von Frontier Developments plc. Dieses Projekt ist ein inoffizielles
 Fan-Werkzeug und steht in keiner Verbindung zu Frontier Developments, Valve, Khronos oder Virtual Desktop.
 Inspiriert von OpenKneeboard, aber eigenständig entwickelt.
+
+Entstanden mit Hilfe von KI: Der Quellcode, die Texte und der Installer wurden zusammen mit
+Claude (Anthropic) geschrieben; Idee, Anforderungen, Tests und Veröffentlichung: Andreas Rettig.

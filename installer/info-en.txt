@@ -1,0 +1,19 @@
+﻿ED Overlay Board – movable VR overlay windows for Elite Dangerous
+
+Note: This program was created with the help of AI (Claude by Anthropic).
+It is an unofficial fan tool and is not affiliated with Frontier Developments.
+
+What gets installed?
+- The companion app (EDOverlayBoard.exe); it runs in the notification area.
+- An OpenXR API layer (EDOverlayBoard_Layer.dll). It is registered for your
+  Windows user and loaded into OpenXR games by the OpenXR loader. It only
+  shows something while the app is running.
+
+No administrator rights are needed. Uninstalling removes the layer
+registration; your config.json and your images are kept.
+
+Requirements: Windows 10 (2004+) / 11, an OpenXR runtime (e.g. Virtual
+Desktop VDXR, SteamVR, Meta) and Elite Dangerous running through OpenXR
+(e.g. with OpenComposite).
+
+Elite Dangerous is a trademark of Frontier Developments plc.

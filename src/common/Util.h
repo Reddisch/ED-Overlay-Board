@@ -37,3 +37,24 @@ inline std::filesystem::path ExeDir() {
   GetModuleFileNameW(nullptr, buf, static_cast<DWORD>(std::size(buf)));
   return std::filesystem::path(buf).parent_path();
 }
+
+// Where config.json, the log and the image folders live: next to the exe when that folder is
+// writable (portable / per-user install), otherwise %LOCALAPPDATA%\EDOverlayBoard.
+inline std::filesystem::path DataDir() {
+  static const std::filesystem::path dir = [] {
+    const auto exe = ExeDir();
+    HANDLE h = CreateFileW((exe / L".edob-write-test").c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+                           FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, nullptr);
+    if (h != INVALID_HANDLE_VALUE) {
+      CloseHandle(h);
+      return exe;
+    }
+    wchar_t buf[MAX_PATH * 2]{};
+    DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", buf, static_cast<DWORD>(std::size(buf)));
+    std::filesystem::path d = (n > 0 && n < std::size(buf)) ? std::filesystem::path(buf) / L"EDOverlayBoard" : exe;
+    std::error_code ec;
+    std::filesystem::create_directories(d, ec);
+    return d;
+  }();
+  return dir;
+}
