@@ -69,6 +69,7 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       clickVolume = s.value("clickVolume", clickVolume);
       scaleSpeed = s.value("scaleSpeed", scaleSpeed);
       pushPullSpeed = s.value("pushPullSpeed", pushPullSpeed);
+      swipeSpeed = s.value("swipeSpeed", swipeSpeed);
       lookToShow = s.value("lookToShow", lookToShow);
       lookMarginDeg = s.value("lookMarginDeg", lookMarginDeg);
       sharpness = s.value("sharpness", sharpness);
@@ -88,6 +89,7 @@ bool AppConfig::Load(const std::filesystem::path& path) {
         for (int i = 0; i < 4; ++i) c.trim[i] = w["trim"][i].get<int>();
       c.captureCursor = w.value("captureCursor", false);
       c.forwardClicks = w.value("forwardClicks", true);
+      c.dragScroll = w.value("dragScroll", true);
       if (w.contains("crop") && w["crop"].is_array() && w["crop"].size() == 4) {
         c.hasCrop = true;
         for (int i = 0; i < 4; ++i) c.crop[i] = w["crop"][i].get<int>();
@@ -139,6 +141,7 @@ bool AppConfig::Save() {
   s["clickVolume"] = Round(clickVolume, 0.01);
   s["scaleSpeed"] = Round(scaleSpeed, 0.01);
   s["pushPullSpeed"] = Round(pushPullSpeed, 0.01);
+  s["swipeSpeed"] = Round(swipeSpeed, 0.01);
   s["lookToShow"] = lookToShow;
   s["lookMarginDeg"] = Round(lookMarginDeg, 0.1);
   s["sharpness"] = Round(sharpness, 0.01);
@@ -159,6 +162,7 @@ bool AppConfig::Save() {
       if (c.hasCrop) w["crop"] = json::array({c.crop[0], c.crop[1], c.crop[2], c.crop[3]});
       if (c.captureCursor) w["captureCursor"] = true;
       if (!c.forwardClicks) w["forwardClicks"] = false;
+      if (!c.dragScroll) w["dragScroll"] = false;
     } else {
       if (!c.folder.empty()) w["folder"] = c.folder;
       if (!c.images.empty()) w["images"] = c.images;

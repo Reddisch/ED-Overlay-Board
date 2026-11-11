@@ -58,7 +58,8 @@ class OverlaySession {
     bool pointerActive = false;
     float pointerX = 0, pointerY = 0;
     uint32_t pendingDown = 0, pendingUp = 0;
-    float pendingWheel = 0;
+    float pendingWheel = 0, pendingWheelX = 0;
+    bool keyboardFocus = false;
     float opacity = 1.0f;
     uint32_t effect = 0;  // ipc::ShowEffect
     float anim = 0.0f;    // 0 = hidden .. 1 = fully shown (show / hide animation)
@@ -185,7 +186,7 @@ class OverlaySession {
   DXGI_FORMAT mipSrvFormat_ = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
 
   Win windows_[ipc::kMaxWindows];
-  Swapchain cursor_, frameHover_, frameZone_, frameGrab_, glow_;
+  Swapchain cursor_, frameHover_, frameZone_, frameGrab_, frameKeys_, glow_;
 
   Pose center_;
   Pose head_;

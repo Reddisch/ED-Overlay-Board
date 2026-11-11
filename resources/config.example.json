@@ -39,6 +39,7 @@
   "bindings": [
     { "action": "recenter",          "key": "Ctrl+Alt+Numpad5" },
     { "action": "toggleMenu",        "key": "Ctrl+Alt+M" },
+    { "action": "toggleKeyboard",    "key": "Ctrl+Alt+K" },
     { "action": "toggleAll",         "key": "Ctrl+Alt+Numpad0" },
     { "action": "toggleInteraction", "key": "Ctrl+Alt+NumpadDecimal" },
     { "action": "toggleWindow",      "key": "Ctrl+Alt+Numpad1", "window": "Klemmbrett" },

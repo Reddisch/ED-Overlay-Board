@@ -30,8 +30,18 @@ class WindowCaptureSource : public ContentSource {
   void SetPointer(bool active, float x, float y) override;
   void AddButton(bool down) override;
   void AddWheel(float steps) override;
+  void AddWheelX(float steps) override;
+  void SetSwipe(bool enabled, float speed) override {
+    swipeEnabled_ = enabled;
+    swipeSpeed_ = speed;
+  }
+  HWND KeyboardTarget() const override;
 
  private:
+  // wheel units (WHEEL_DELTA = one notch) -> WM_MOUSEWHEEL / WM_MOUSEHWHEEL at a screen point
+  void PostWheel(HWND target, POINT screen, float units, bool horizontal);
+  void SwipeTo(POINT screen);
+  void UpdateFling();
   HWND FindTarget() const;
   bool StartCapture(HWND hwnd);
   void StopCapture();
@@ -72,7 +82,19 @@ class WindowCaptureSource : public ContentSource {
   bool dragging_ = false;  // moved while held: real drag (button down sent)
   HWND pressHwnd_ = nullptr;
   POINT pressClient_{}, pressScreen_{};
-  float wheelAccum_ = 0.0f;  // in WHEEL_DELTA units
+  std::chrono::steady_clock::time_point pressTime_{};
+  float wheelAccum_ = 0.0f, wheelAccumX_ = 0.0f;  // in WHEEL_DELTA units, not sent yet
+  // drag-to-scroll
+  bool swipeEnabled_ = true;
+  float swipeSpeed_ = 1.0f;
+  bool swiping_ = false;
+  POINT swipeLast_{};
+  float swipeVel_[2]{};  // wheel units per second (x, y), smoothed, for the fling after release
+  std::chrono::steady_clock::time_point swipeLastTime_{};
+  bool flinging_ = false;
+  HWND flingHwnd_ = nullptr;
+  POINT flingScreen_{};
+  std::chrono::steady_clock::time_point flingLastTime_{};
   std::chrono::steady_clock::time_point lastWheelLog_{};
   bool postErrorLogged_ = false;
   std::chrono::steady_clock::time_point nextSearch_{};

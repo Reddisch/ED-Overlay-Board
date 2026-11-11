@@ -21,6 +21,11 @@ class ContentSource {
   virtual void SetPointer(bool /*active*/, float /*x*/, float /*y*/) {}
   virtual void AddButton(bool /*down*/) {}
   virtual void AddWheel(float /*steps*/) {}
+  virtual void AddWheelX(float /*steps*/) {}  // horizontal wheel, positive = scroll right
+  // drag-to-scroll (touch screen style); speed = wheel notches per ~60 pixels of dragging
+  virtual void SetSwipe(bool /*enabled*/, float /*speed*/) {}
+  // window that should receive PC keyboard input (keyboard mode), nullptr = none
+  virtual HWND KeyboardTarget() const { return nullptr; }
   virtual void NextPage() {}
   virtual void PrevPage() {}
   virtual int Page() const { return 0; }

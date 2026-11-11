@@ -16,12 +16,12 @@
 namespace ipc {
 
 constexpr uint32_t kMagic = 0x424F4445;  // "EDOB"
-constexpr uint32_t kVersion = 6;
+constexpr uint32_t kVersion = 7;
 constexpr int kMaxWindows = 16;
 constexpr uint64_t kHeartbeatTimeoutMs = 3000;
 
-inline constexpr wchar_t kMappingName[] = L"Local\\EDOverlayBoard.State.v6";
-inline constexpr wchar_t kMutexName[] = L"Local\\EDOverlayBoard.Mutex.v6";
+inline constexpr wchar_t kMappingName[] = L"Local\\EDOverlayBoard.State.v7";
+inline constexpr wchar_t kMutexName[] = L"Local\\EDOverlayBoard.Mutex.v7";
 
 // Name of a shared D3D11 texture (NT handle + keyed mutex, BGRA8). `generation` is unique
 // within one app instance, so a name is never reused while the layer may still hold it.
@@ -86,7 +86,10 @@ struct Window {
   uint32_t pointerActive;
   float pointerX, pointerY;
   uint32_t pointerDownSerial, pointerUpSerial;  // each press / release increments
-  float pointerWheel;                           // accumulated wheel steps (thumbstick)
+  float pointerWheel;                           // accumulated wheel steps (thumbstick up/down)
+  float pointerWheelX;                          // accumulated horizontal wheel steps (thumbstick left/right)
+
+  uint32_t keyboardFocus;  // app -> layer: PC keyboard input currently goes to this window
 };
 
 struct State {

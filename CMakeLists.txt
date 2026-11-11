@@ -81,6 +81,7 @@ add_executable(EDOverlayBoard
   src/app/HotkeyManager.cpp
   src/app/ImageSource.cpp
   src/app/JoystickManager.cpp
+  src/app/KeyboardCapture.cpp
   src/app/LayerRegistration.cpp
   src/app/WindowCaptureSource.cpp
   src/app/ClickSound.cpp

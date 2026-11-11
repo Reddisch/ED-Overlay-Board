@@ -111,7 +111,8 @@ Den Layer kurzfristig abschalten: Umgebungsvariable `DISABLE_XR_APILAYER_EDOB_OV
 | Fenster greifen/verschieben | Grip halten, Hand bewegen | Pinch (Daumen + Zeigefinger) halten |
 | Am Rand greifen | Grip oder Trigger auf dem Rahmen | Pinch auf dem Rahmen |
 | Programmfenster bedienen (z. B. EDCoPilot): klicken, ziehen | Trigger (halten = Maustaste halten) | Pinch (halten = Maustaste halten) |
-| In Programmfenstern scrollen | beim Zeigen Stick hoch/runter | Scrollbalken greifen und ziehen |
+| In Programmfenstern scrollen | Stick hoch/runter/seitlich oder Trigger halten und wischen | Pinch halten und wischen |
+| Ziehen mit der Maus (Schieberegler, Scrollbalken, Text markieren) | Trigger ca. 0,5 s still halten, dann ziehen | Pinch ca. 0,5 s still halten, dann ziehen |
 | Kneeboard blättern | Trigger (rechte/linke Hälfte = vor/zurück) | kurzer Pinch |
 | Größe ändern | beim Greifen Stick hoch/runter | mit zweiter Hand ebenfalls greifen und auseinanderziehen |
 | Abstand näher/weiter | beim Greifen Stick links/rechts | – |
@@ -124,6 +125,17 @@ Bedienbare Programmfenster (`forwardClicks`, im VR-Menü „klickbar“) verhalt
 Trigger bzw. Pinch ist die linke Maustaste, verschoben wird mit Grip oder über den Rand. Die Maus-Eingaben
 gehen als Fensternachrichten an das Programm: Das Spiel behält den Fokus, die echte Maus bewegt sich nicht.
 Funktioniert mit EDCoPilot; Programme, die als Administrator laufen, nehmen die Eingaben nicht an.
+
+**Wischen scrollt** (`dragScroll`, Standard an): Trigger/Pinch halten und ziehen scrollt den Inhalt wie
+am Handy (auch seitlich), Loslassen in der Bewegung scrollt mit Schwung weiter. Wer erst ca. 0,5 s still
+hält und dann zieht, zieht wie mit der Maus. Tempo: `swipeSpeed` (Reiter *Allgemein*).
+
+**PC-Tastatur ins VR-Fenster** (Aktion `toggleKeyboard` oder Knopf im VR-Menü): Die Tasten der echten
+Tastatur gehen an das zuletzt im VR angeklickte Programmfenster (blauer Rahmen), Elite behält den Fokus,
+bekommt die Tasten aber nicht. Erneut auslösen = zurück an Elite. Eigene Hotkeys funktionieren weiter;
+Tasten, die Programme wie VoiceAttack oder EDCoPilot simulieren, gehen weiter an das Spiel. Ein Klick in
+ein anderes Programmfenster lenkt die Tastatur dorthin. Text tippen klappt in den meisten Programmen;
+Tastenkürzel mit Strg/Alt erkennen manche Programme so nicht.
 
 Controller funktionieren, sobald das Spiel Controller-Bindings anmeldet (OpenComposite tut das).
 Der Layer hängt seine Aktionen nur an Controller-Profile an, die das Spiel selbst nutzt, und verändert
@@ -165,6 +177,7 @@ die Spielsteuerung nicht. Handtracking wird genutzt, wenn die Runtime `XR_EXT_ha
 | `crop` | (window) Ausschnitt `[x, y, breite, höhe]` in Pixeln, z. B. um Browser-Leisten abzuschneiden |
 | `captureCursor` | (window) Mauszeiger mit aufnehmen |
 | `forwardClicks` | (window) im VR mit Trigger/Pinch/Stick bedienbar – klicken, ziehen, scrollen (Standard `true`) |
+| `dragScroll` | (window) Halten und Wischen scrollt wie am Touchscreen (Standard `true`) |
 | `folder` / `images` | (images) Bilderordner bzw. Dateiliste, relativ zur config.json |
 | `position` | Meter relativ zur zentrierten Kopfposition: x = rechts, y = oben, −z = vorne |
 | `rotation` | Grad: `[Neigung, Drehung, Rollen]` |
@@ -190,6 +203,7 @@ Das gespiegelte Fenster darf hinter dem Spiel liegen, aber **nicht minimiert** s
 | `nextPage` / `prevPage` | Kneeboard-Seite blättern (`window`, leer = alle) |
 | `toggleInteraction` | Greifen sperren/entsperren (gegen versehentliches Verschieben) |
 | `toggleMenu` | VR-Menü ein-/ausblenden |
+| `toggleKeyboard` | PC-Tastatur an das zuletzt angeklickte Programmfenster im VR / zurück an das Spiel |
 | `openSettings` | Einstellungsfenster am PC öffnen |
 
 - **Tastatur:** `"key": "Ctrl+Alt+Numpad5"` – Modifier `Ctrl`, `Alt`, `Shift`, `Win`; Tasten `A`–`Z`, `0`–`9`,

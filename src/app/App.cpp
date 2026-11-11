@@ -116,6 +116,8 @@ std::unique_ptr<ContentSource> App::MakeSource(const WindowConfig& c) {
 }
 
 void App::RebuildSlots() {
+  StopKeyboard("window list changed");
+  lastMouseSlot_ = -1;
   for (auto& s : slots_)
     if (s.handle) CloseHandle(s.handle);
   slots_.clear();
@@ -155,6 +157,7 @@ void App::RebuildSlots() {
     s.seenDown = w.pointerDownSerial;
     s.seenUp = w.pointerUpSerial;
     s.seenWheel = w.pointerWheel;
+    s.seenWheelX = w.pointerWheelX;
     w.active = 1;
     w.texWidth = w.texHeight = w.texGeneration = w.contentVersion = 0;
     s.pushPlacement = true;
@@ -165,15 +168,19 @@ void App::RegisterBindings() {
   hotkeys_.UnregisterAll();
   joysticks_.ClearBindings();
   int keys = 0, buttons = 0;
+  std::vector<KeyboardCapture::Hotkey> captureKeys;  // hotkeys still work while the keyboard is captured
   for (size_t i = 0; i < cfg_.bindings.size(); ++i) {
     const auto& b = cfg_.bindings[i];
     const int id = static_cast<int>(i);
+    if (KeyboardCapture::Hotkey hk{0, 0, id + 1}; !b.key.empty() && HotkeyManager::Parse(b.key, hk.modifiers, hk.vk))
+      captureKeys.push_back(hk);
     if (!b.key.empty() && !keyLearning_ && hotkeys_.Register(id + 1, b.key)) ++keys;
     if (b.button > 0) {
       joysticks_.AddBinding(id, b.joystick, b.button);
       ++buttons;
     }
   }
+  keyboard_.SetHotkeys(std::move(captureKeys));
   Log("Bindings: {} key(s), {} joystick button(s)", keys, buttons);
 }
 
@@ -224,6 +231,12 @@ void App::Tick() {
     TranslateMessage(&msg);
     DispatchMessageW(&msg);
   }
+  for (const auto& e : keyboard_.Drain()) {  // keyboard mode: keys taken away from the game
+    if (e.binding > 0)
+      fired.push_back(e.binding - 1);
+    else
+      ForwardKey(e);
+  }
   for (int id : joysticks_.Poll()) fired.push_back(id);
   UpdateLearning();
   if (!Learning()) {
@@ -242,6 +255,7 @@ void App::Tick() {
   }
 
   if (settings_) settings_->Frame();
+  CheckKeyboard();
   SyncShared();
   SaveIfIdle(false);
 }
@@ -330,6 +344,8 @@ void App::SyncShared() {
     // VR menu and clickable program windows: trigger/pinch act as a mouse (click, drag, wheel)
     const bool mouse = s.internal || (c.type == "window" && c.forwardClicks);
     w.mouseInput = mouse;
+    w.keyboardFocus = static_cast<int>(i) == keyboardSlot_;
+    if (s.source && !s.internal) s.source->SetSwipe(c.dragScroll, std::clamp(cfg_.swipeSpeed, 0.05f, 10.0f));
     if (s.mouse && !mouse && s.source) {  // switched off while in use: release the button
       s.source->SetPointer(false, 0.0f, 0.0f);
       s.source->AddButton(false);
@@ -375,6 +391,13 @@ void App::SyncShared() {
       s.seenDown = w.pointerDownSerial;
       s.seenUp = w.pointerUpSerial;
       if (downs > 0) clickSound_.Play(cfg_.clickVolume);
+      if (downs > 0 && !s.internal) {  // the keyboard follows the program window clicked last
+        lastMouseSlot_ = static_cast<int>(i);
+        if (keyboardSlot_ >= 0 && keyboardSlot_ != lastMouseSlot_) {
+          StopKeyboard("other window clicked");
+          StartKeyboard();
+        }
+      }
       for (uint32_t k = 0; k < std::max(downs, ups); ++k) {
         if (k < downs) s.source->AddButton(true);
         if (k < ups) s.source->AddButton(false);
@@ -382,6 +405,9 @@ void App::SyncShared() {
       float wheel = w.pointerWheel - s.seenWheel;
       s.seenWheel = w.pointerWheel;
       if (std::fabs(wheel) > 1e-3f) s.source->AddWheel(wheel);
+      float wheelX = w.pointerWheelX - s.seenWheelX;
+      s.seenWheelX = w.pointerWheelX;
+      if (std::fabs(wheelX) > 1e-3f) s.source->AddWheelX(wheelX);
     }
   }
   for (size_t i = slots_.size(); i < ipc::kMaxWindows; ++i) st->windows[i].active = 0;
@@ -392,6 +418,7 @@ void App::SyncShared() {
       Log("VR connected: \"{}\" on runtime \"{}\"", st->layerApplication, st->layerRuntime);
     else
       Log("VR disconnected.");
+    if (!connected) StopKeyboard("VR disconnected");
   }
   vrStatus_.connected = connected;
   vrStatus_.application = st->layerApplication;
@@ -442,6 +469,12 @@ void App::Execute(const BindingConfig& b) {
   } else if (b.action == "toggleMenu") {
     menuCfg_.visible = !menuCfg_.visible;
     slots_.back().pending = true;
+  } else if (b.action == "toggleKeyboard") {
+    if (keyboardSlot_ >= 0)
+      StopKeyboard("switched off");
+    else
+      StartKeyboard();
+    clickSound_.Play(cfg_.clickVolume);
   } else if (b.action == "openSettings") {
     OpenSettings();
   } else {
@@ -450,6 +483,105 @@ void App::Execute(const BindingConfig& b) {
 }
 
 bool App::MenuVisible() const { return menuCfg_.visible; }
+
+// ---------------------------------------------------------------------------
+// PC keyboard into a VR window. Elite keeps the focus; the keys are taken away from it by a
+// low-level hook and posted to the program as WM_KEYDOWN / WM_CHAR / WM_KEYUP.
+
+std::string App::KeyboardWindow() const {
+  return keyboardSlot_ >= 0 && keyboardSlot_ < static_cast<int>(slots_.size())
+             ? slots_[static_cast<size_t>(keyboardSlot_)].cfg->name
+             : std::string{};
+}
+
+void App::StartKeyboard() {
+  // target: the program window clicked last in VR, else the first visible clickable one
+  auto usable = [&](int i) {
+    if (i < 0 || i >= static_cast<int>(slots_.size())) return false;
+    const Slot& s = slots_[static_cast<size_t>(i)];
+    return !s.internal && s.mouse && s.cfg->visible && !allHidden_ && s.source && s.source->KeyboardTarget();
+  };
+  int slot = usable(lastMouseSlot_) ? lastMouseSlot_ : -1;
+  for (int i = 0; slot < 0 && i < static_cast<int>(slots_.size()); ++i)
+    if (usable(i)) slot = i;
+  if (slot < 0) {
+    Log("Keyboard: no visible program window with mouse input to type into");
+    return;
+  }
+  HWND target = slots_[static_cast<size_t>(slot)].source->KeyboardTarget();
+  DWORD pid = 0;
+  GetWindowThreadProcessId(target, &pid);
+  if (!keyboard_.Start(pid)) return;
+  keyboardSlot_ = slot;
+  keyTarget_ = target;
+  std::memset(keyState_, 0, sizeof(keyState_));
+  for (int vk : {VK_CAPITAL, VK_NUMLOCK, VK_SCROLL}) keyState_[vk] = GetKeyState(vk) & 1;
+  Log("Keyboard: typing into '{}' (window 0x{:X})", slots_[static_cast<size_t>(slot)].cfg->name,
+      reinterpret_cast<uintptr_t>(target));
+}
+
+void App::StopKeyboard(const char* reason) {
+  if (keyboardSlot_ < 0) return;
+  keyboard_.Stop();
+  if (IsWindow(keyTarget_))  // release whatever is still held, so no modifier gets stuck in the program
+    for (int vk = 1; vk < 256; ++vk)
+      if ((keyState_[vk] & 0x80) && vk != VK_SHIFT && vk != VK_CONTROL && vk != VK_MENU)
+        ForwardKey({static_cast<UINT>(vk), MapVirtualKeyW(static_cast<UINT>(vk), MAPVK_VK_TO_VSC), false, false, 0});
+  Log("Keyboard: back to the game ({})", reason);
+  keyboardSlot_ = -1;
+  keyTarget_ = nullptr;
+}
+
+void App::CheckKeyboard() {
+  if (keyboardSlot_ < 0) return;
+  const Slot& s = slots_[static_cast<size_t>(keyboardSlot_)];
+  HWND target = s.cfg->visible && !allHidden_ && s.mouse && s.source ? s.source->KeyboardTarget() : nullptr;
+  if (!target) {
+    StopKeyboard("window hidden or closed");
+    return;
+  }
+  keyTarget_ = target;  // follows the focus inside the program (e.g. a text field clicked in VR)
+  DWORD pid = 0;
+  GetWindowThreadProcessId(target, &pid);
+  keyboard_.SetPassProcess(pid);
+}
+
+void App::ForwardKey(const KeyboardCapture::Event& e) {
+  if (!IsWindow(keyTarget_) || e.vk == 0 || e.vk > 255) return;
+  const bool wasDown = (keyState_[e.vk] & 0x80) != 0;
+  if (!e.down && !wasDown) return;  // release of a key we never forwarded (e.g. a hotkey)
+  if (e.down) {
+    if (!wasDown && (e.vk == VK_CAPITAL || e.vk == VK_NUMLOCK || e.vk == VK_SCROLL)) keyState_[e.vk] ^= 1;
+    keyState_[e.vk] |= 0x80;
+  } else {
+    keyState_[e.vk] &= 0x7F;
+  }
+  auto both = [&](int generic, int l, int r) { keyState_[generic] = (keyState_[l] | keyState_[r]) & 0x80; };
+  both(VK_SHIFT, VK_LSHIFT, VK_RSHIFT);
+  both(VK_CONTROL, VK_LCONTROL, VK_RCONTROL);
+  both(VK_MENU, VK_LMENU, VK_RMENU);
+
+  const bool alt = (keyState_[VK_MENU] & 0x80) != 0, ctrl = (keyState_[VK_CONTROL] & 0x80) != 0;
+  const bool sys = alt && !ctrl;  // Alt+key = system key; Ctrl+Alt is AltGr
+  // programs expect the generic VK in WM_KEYDOWN (VK_SHIFT, not VK_LSHIFT)
+  UINT vk = e.vk;
+  if (vk == VK_LSHIFT || vk == VK_RSHIFT) vk = VK_SHIFT;
+  if (vk == VK_LCONTROL || vk == VK_RCONTROL) vk = VK_CONTROL;
+  if (vk == VK_LMENU || vk == VK_RMENU) vk = VK_MENU;
+  LPARAM lp = 1 | (static_cast<LPARAM>(e.scan & 0xFF) << 16) | (e.extended ? (1 << 24) : 0) | (alt ? (1 << 29) : 0);
+  if (e.down && wasDown) lp |= 1 << 30;  // auto repeat
+  if (!e.down) lp |= (static_cast<LPARAM>(1) << 30) | (static_cast<LPARAM>(1) << 31);  // was down, going up
+  const bool sysUp = !e.down && (sys || vk == VK_MENU);
+  const UINT msg = e.down ? (sys ? WM_SYSKEYDOWN : WM_KEYDOWN) : (sysUp ? WM_SYSKEYUP : WM_KEYUP);
+  PostMessageW(keyTarget_, msg, vk, lp);
+
+  if (e.down) {  // what TranslateMessage would do: characters with the program's keyboard layout
+    wchar_t chars[8]{};
+    HKL layout = GetKeyboardLayout(GetWindowThreadProcessId(keyTarget_, nullptr));
+    const int n = ToUnicodeEx(e.vk, e.scan, keyState_, chars, 8, 0, layout);
+    for (int k = 0; k < n; ++k) PostMessageW(keyTarget_, sys ? WM_SYSCHAR : WM_CHAR, chars[k], lp);
+  }
+}
 
 std::string App::WindowStatus(int window) const {
   if (window < 0 || window >= static_cast<int>(slots_.size()) || !slots_[static_cast<size_t>(window)].source) return {};

@@ -27,6 +27,7 @@ const ActionDef kActions[] = {
     {"prevPage", "Vorherige Seite", "Previous page", true},
     {"toggleInteraction", "Greifen sperren/entsperren", "Lock/unlock grabbing", false},
     {"toggleMenu", "VR-Menü ein/aus", "VR menu on/off", false},
+    {"toggleKeyboard", "PC-Tastatur ins VR-Fenster ein/aus", "PC keyboard into VR window on/off", false},
     {"openSettings", "Einstellungen öffnen", "Open settings", false},
 };
 const int kActionCount = static_cast<int>(std::size(kActions));
@@ -416,6 +417,19 @@ void SettingsWindow::DrawWindowsTab() {
                                   "Trigger or pinch = left mouse button (click, drag), thumbstick = mouse wheel.\n"
                                   "Move the window with grip or by its border.\n"
                                   "Elite keeps the focus, the mouse does not move."));
+    if (w.forwardClicks) {
+      ImGui::SameLine(0, 30 * s);
+      if (ImGui::Checkbox(T("Wischen scrollt###swipe", "Swipe to scroll###swipe"), &w.dragScroll))
+        app_.ConfigChanged(false);
+      ImGui::SetItemTooltip("%s", T("Trigger/Pinch halten und ziehen scrollt den Inhalt (wie am Handy), auch seitlich.\n"
+                                    "Loslassen in der Bewegung scrollt mit Schwung weiter.\n"
+                                    "Erst ca. 0,5 s still halten, dann ziehen = normales Ziehen mit der Maus\n"
+                                    "(Schieberegler, Scrollbalken, Text markieren).",
+                                    "Hold trigger/pinch and drag to scroll the content (like a phone), also sideways.\n"
+                                    "Letting go while moving keeps it scrolling for a moment.\n"
+                                    "Hold still for about 0.5 s first, then drag = normal mouse drag\n"
+                                    "(sliders, scroll bars, selecting text)."));
+    }
   } else {
     ImGui::InputText(T("Bilderordner###folder", "Image folder###folder"), &w.folder);
     if (ImGui::IsItemDeactivatedAfterEdit()) app_.ConfigChanged(false);
@@ -649,6 +663,8 @@ void SettingsWindow::DrawGeneralTab() {
                           &cfg.scaleSpeed, 0.2f, 3.0f, "%.2f");
   c |= ImGui::SliderFloat(T("Abstand ändern per Stick (m/s)###push", "Push/pull with thumbstick (m/s)###push"),
                           &cfg.pushPullSpeed, 0.1f, 2.0f, "%.2f");
+  c |= ImGui::SliderFloat(T("Wisch-Scrollen (Tempo)###swipe", "Swipe scrolling (speed)###swipe"), &cfg.swipeSpeed,
+                          0.25f, 4.0f, "%.2f");
   c |= ImGui::SliderFloat(T("Breite VR-Menü (m)###menuw", "VR menu width (m)###menuw"), &cfg.menuWidth, 0.2f, 1.0f,
                           "%.2f");
   if (c) app_.ConfigChanged(false);
@@ -922,6 +938,16 @@ void VrMenu::Draw() {
   const char* lock =
       app_.InteractionEnabled() ? T("Sperren###lock", "Lock###lock") : T("Entsperren###lock", "Unlock###lock");
   if (ImGui::Button(lock, {third, 0})) app_.Do("toggleInteraction");
+  {  // PC keyboard into the program window clicked last
+    const std::string kbWindow = app_.KeyboardWindow();
+    std::string label = kbWindow.empty()
+                            ? std::string(T("PC-Tastatur ins Fenster", "PC keyboard into window"))
+                            : std::string(T("Tastatur zurück an Elite  (tippt in: ", "Keyboard back to Elite  (typing into: ")) +
+                                  kbWindow + ")";
+    if (!kbWindow.empty()) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.55f, 0.85f, 1.0f));
+    if (ImGui::Button((label + "###keyboard").c_str(), {-FLT_MIN, 0})) app_.Do("toggleKeyboard");
+    if (!kbWindow.empty()) ImGui::PopStyleColor();
+  }
 
   ImGui::SeparatorText(T("Anzeige", "Display"));
   if (ImGui::Checkbox(T("Nur beim Hinsehen anzeigen###look", "Only show when looking at it###look"), &cfg.lookToShow))

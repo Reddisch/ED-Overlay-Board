@@ -21,6 +21,7 @@ struct WindowConfig {
   int crop[4]{};              // legacy: x, y, width, height in window pixels
   bool captureCursor = false;
   bool forwardClicks = true;  // trigger / pinch in VR clicks into the captured program
+  bool dragScroll = true;     // forwardClicks: dragging scrolls like on a touch screen (hold still first = mouse drag)
 
   // type == "images"
   std::string folder;               // folder with PNG/JPG/... files (relative to config dir)
@@ -63,6 +64,7 @@ struct AppConfig {
   float clickVolume = 0.5f;    // click sound in VR (0 = off)
   float scaleSpeed = 1.0f;     // thumbstick resize speed
   float pushPullSpeed = 0.75f; // thumbstick push/pull speed (m/s)
+  float swipeSpeed = 1.0f;     // drag-to-scroll: wheel notches per ~60 pixels of dragging
   bool lookToShow = true;      // windows only appear when looking towards them
   float lookMarginDeg = 10.0f; // extra angle around a window that still counts as looking at it
   float sharpness = 1.0f;      // 1 = smooth (anti-aliased), 1.5-2 = sharper but may shimmer

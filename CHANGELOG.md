@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Swipe to scroll in program windows (trigger or pinch, like a touch screen, with fling);
+  hold still for about 0.5 s first for a normal mouse drag. Per window `dragScroll`, speed `swipeSpeed`
+- Horizontal scrolling with the thumbstick
+- PC keyboard into a VR window (`toggleKeyboard`, VR menu button): keys go to the program window
+  clicked last (blue border), Elite keeps the focus; hotkeys and injected keys still work
+- IPC version 7 (app and layer must match)
+
 ## 0.3.0
 
 - Installer (Inno Setup, per user, no admin rights): registers the OpenXR layer, optional desktop

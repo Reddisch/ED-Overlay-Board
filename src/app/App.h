@@ -7,6 +7,7 @@
 #include "HotkeyManager.h"
 #include "Ipc.h"
 #include "JoystickManager.h"
+#include "KeyboardCapture.h"
 
 #include <dxgi1_2.h>
 
@@ -47,6 +48,8 @@ class App {
   bool InteractionEnabled() const { return interactionEnabled_; }
   bool AllHidden() const { return allHidden_; }
   bool MenuVisible() const;
+  // PC keyboard into a VR window: name of the window receiving the keys, "" = off
+  std::string KeyboardWindow() const;
 
   void StartKeyLearning();
   void StartJoystickLearning();
@@ -75,7 +78,7 @@ class App {
     bool pending = true;
     bool pushPlacement = true;
     uint32_t seenLayerPlacement = 0, seenClick = 0, seenDown = 0, seenUp = 0;
-    float seenWheel = 0.0f;
+    float seenWheel = 0.0f, seenWheelX = 0.0f;
     bool mouse = false;  // mouse input enabled (last value sent to the layer)
   };
 
@@ -88,6 +91,10 @@ class App {
   bool Publish(Slot& s, ID3D11Texture2D* src);
   void SyncShared();
   void UpdateLearning();
+  void StartKeyboard();
+  void StopKeyboard(const char* reason);
+  void CheckKeyboard();
+  void ForwardKey(const KeyboardCapture::Event& e);
   void MarkDirty();
   void SaveIfIdle(bool force);
   void CreateTrayIcon();
@@ -100,6 +107,11 @@ class App {
   D3D d3d_;
   HotkeyManager hotkeys_;
   JoystickManager joysticks_;
+  KeyboardCapture keyboard_;
+  int keyboardSlot_ = -1;   // slot receiving the PC keyboard, -1 = keyboard mode off
+  int lastMouseSlot_ = -1;  // program window clicked last in VR
+  HWND keyTarget_ = nullptr;
+  BYTE keyState_[256]{};    // keys forwarded to the target (for ToUnicodeEx and key repeat)
   ClickSound clickSound_;
   ipc::SharedState shm_;
   HWND hwnd_ = nullptr;

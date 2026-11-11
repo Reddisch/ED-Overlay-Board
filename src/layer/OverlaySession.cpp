@@ -54,6 +54,7 @@ OverlaySession::~OverlaySession() {
   DestroySwapchain(frameHover_);
   DestroySwapchain(frameZone_);
   DestroySwapchain(frameGrab_);
+  DestroySwapchain(frameKeys_);
   DestroySwapchain(glow_);
   input_.Destroy();
   if (localSpace_ != XR_NULL_HANDLE) next_.xrDestroySpace(localSpace_);
@@ -111,9 +112,10 @@ void OverlaySession::Init() {
   CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 140, 25, 70)), frameHover_);
   CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 140, 25, 190)), frameZone_);
   CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 140, 25, 255)), frameGrab_);
+  CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(60, 190, 255, 255)), frameKeys_);
   CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 205, 130, 255)), glow_);
 
-  quads_.reserve(ipc::kMaxWindows * 4 + 4);
+  quads_.reserve(ipc::kMaxWindows * 5 + 4);
   colorScales_.reserve(ipc::kMaxWindows + 1);
   Log("Overlay session ready (swapchain format {})", format_);
 }
@@ -277,6 +279,7 @@ void OverlaySession::SyncIpc() {
     w.interactive = sw.interactive;
     w.mouse = sw.mouseInput != 0;
     w.headerFraction = sw.headerFraction;
+    w.keyboardFocus = sw.keyboardFocus != 0;
     w.opacity = sw.opacity;
     w.effect = sw.showEffect < ipc::kEffectCount ? sw.showEffect : 0;
     w.texW = sw.texWidth;
@@ -308,8 +311,9 @@ void OverlaySession::SyncIpc() {
       sw.pointerDownSerial += w.pendingDown;
       sw.pointerUpSerial += w.pendingUp;
       sw.pointerWheel += w.pendingWheel;
+      sw.pointerWheelX += w.pendingWheelX;
       w.pendingDown = w.pendingUp = 0;
-      w.pendingWheel = 0;
+      w.pendingWheel = w.pendingWheelX = 0;
     }
   }
 }
@@ -513,7 +517,12 @@ void OverlaySession::UpdateInteraction(float dt) {
         if (haptics_) input_.Haptic(h, 0.01f, 0.3f);
         continue;
       }
-      if (!p.isHand && std::fabs(p.stickY) > kStickDeadzone) w.pendingWheel += p.stickY * dt * 6.0f;
+      // stick = mouse wheel; the weaker axis is ignored so a slightly diagonal stick scrolls straight
+      if (!p.isHand) {
+        const float ax = std::fabs(p.stickX), ay = std::fabs(p.stickY);
+        if (ay > kStickDeadzone && ay >= ax * 0.5f) w.pendingWheel += p.stickY * dt * 6.0f;
+        if (ax > kStickDeadzone && ax >= ay * 0.5f) w.pendingWheelX += p.stickX * dt * 6.0f;
+      }
       if (grabPressed && !p.isHand && !w.locked) StartGrab(h, hit);
       continue;
     }
@@ -891,6 +900,11 @@ void OverlaySession::BuildLayers(const XrFrameEndInfo* info) {
       const float m = GrabMargin(w);
       addQuad(grabbed ? frameGrab_ : onZone ? frameZone_ : frameHover_, world * Pose::Translation({0, 0, -0.002f}),
               w.width + 2 * m, h + 2 * m, true);
+    }
+
+    if (w.keyboardFocus && a >= 1.0f) {  // PC keyboard types into this window: thin blue border
+      constexpr float kBorder = 0.006f;
+      addQuad(frameKeys_, world * Pose::Translation({0, 0, -0.001f}), w.width + 2 * kBorder, h + 2 * kBorder, true);
     }
 
     bool fade = colorScaleBias_ && w.opacity < 0.999f;

@@ -14,6 +14,7 @@
 #include <windows.graphics.directx.direct3d11.interop.h>
 
 #include <algorithm>
+#include <cmath>
 
 namespace wgc = winrt::Windows::Graphics::Capture;
 using winrt::Windows::Graphics::DirectX::DirectXPixelFormat;
@@ -272,8 +273,15 @@ bool WindowCaptureSource::Post(HWND target, UINT msg, WPARAM wp, POINT client) {
 
 // Programs that poll the real cursor (Qt, Tk, ...) get confused when a press and its release
 // arrive far apart while the real mouse is somewhere else. So a tap is sent as one burst
-// (move, down, up) on release, which every toolkit accepts as a click. Only when the pointer
-// moves clearly while held does it become a real drag (down ... moves ... up).
+// (move, down, up) on release, which every toolkit accepts as a click. When the pointer moves
+// clearly while held it becomes either a swipe (scrolls the content like a touch screen, sent as
+// mouse wheel messages) or - after holding still for a moment, or with swiping switched off - a
+// real drag (down ... moves ... up) for sliders, scroll bars and text selection.
+namespace {
+constexpr auto kLongPress = 450ms;          // hold still this long before moving = mouse drag
+constexpr float kSwipePixelsPerNotch = 60;  // at 96 dpi and speed 1: one wheel notch per 60 px
+}  // namespace
+
 void WindowCaptureSource::SetPointer(bool active, float x, float y) {
   POINT screen{};
   if (!active || !ToScreen(x, y, screen)) {
@@ -288,10 +296,23 @@ void WindowCaptureSource::SetPointer(bool active, float x, float y) {
   pointerScreen_ = screen;
   pointerIn_ = true;
 
+  if (swiping_) {
+    SwipeTo(screen);
+    return;
+  }
   if (pressed_ && !dragging_) {
     const LONG dx = screen.x - pressScreen_.x, dy = screen.y - pressScreen_.y;
     const LONG threshold = std::max<LONG>(8, region_[2] / 50);  // ~2% of the width: absorbs pinch jitter
     if (dx * dx + dy * dy > threshold * threshold && IsWindow(pressHwnd_)) {
+      if (swipeEnabled_ && std::chrono::steady_clock::now() - pressTime_ < kLongPress) {
+        swiping_ = true;
+        swipeLast_ = pressScreen_;  // the content follows the pointer from where it was pressed
+        swipeLastTime_ = std::chrono::steady_clock::now();
+        swipeVel_[0] = swipeVel_[1] = 0.0f;
+        Log("Window '{}': swipe from ({}, {})", WideToUtf8(name_), pressClient_.x, pressClient_.y);
+        SwipeTo(screen);
+        return;
+      }
       dragging_ = true;
       Post(pressHwnd_, WM_MOUSEMOVE, 0, pressClient_);
       Post(pressHwnd_, WM_LBUTTONDOWN, MK_LBUTTON, pressClient_);
@@ -305,20 +326,69 @@ void WindowCaptureSource::SetPointer(bool active, float x, float y) {
   if (dragging_ && moved) Post(pressHwnd_, WM_MOUSEMOVE, MK_LBUTTON, client);
 }
 
+// Pointer moved while swiping: scroll the content under the press point by the same distance.
+void WindowCaptureSource::SwipeTo(POINT screen) {
+  if (!IsWindow(pressHwnd_)) return;
+  const auto now = std::chrono::steady_clock::now();
+  const UINT dpi = std::max(96u, GetDpiForWindow(pressHwnd_));
+  const float unitsPerPixel = WHEEL_DELTA * std::max(swipeSpeed_, 0.05f) / (kSwipePixelsPerNotch * dpi / 96.0f);
+  // pointer down = content down = scroll up (positive wheel); pointer right = scroll left (negative)
+  const float ux = -static_cast<float>(screen.x - swipeLast_.x) * unitsPerPixel;
+  const float uy = static_cast<float>(screen.y - swipeLast_.y) * unitsPerPixel;
+  swipeLast_ = screen;
+  if (ux != 0.0f) PostWheel(pressHwnd_, pressScreen_, ux, true);
+  if (uy != 0.0f) PostWheel(pressHwnd_, pressScreen_, uy, false);
+
+  const float dt = std::max(0.005f, std::chrono::duration<float>(now - swipeLastTime_).count());
+  swipeLastTime_ = now;
+  swipeVel_[0] = swipeVel_[0] * 0.6f + (ux / dt) * 0.4f;
+  swipeVel_[1] = swipeVel_[1] * 0.6f + (uy / dt) * 0.4f;
+}
+
+// After a swipe the content keeps scrolling for a moment and slows down (like on a phone).
+void WindowCaptureSource::UpdateFling() {
+  if (!flinging_) return;
+  const auto now = std::chrono::steady_clock::now();
+  const float dt = std::min(0.1f, std::chrono::duration<float>(now - flingLastTime_).count());
+  flingLastTime_ = now;
+  if (!IsWindow(flingHwnd_) || pressed_) {
+    flinging_ = false;
+    return;
+  }
+  for (int axis = 0; axis < 2; ++axis) {
+    if (swipeVel_[axis] != 0.0f) PostWheel(flingHwnd_, flingScreen_, swipeVel_[axis] * dt, axis == 0);
+    swipeVel_[axis] *= std::exp(-3.0f * dt);
+  }
+  if (std::hypot(swipeVel_[0], swipeVel_[1]) < 40.0f) flinging_ = false;
+}
+
 void WindowCaptureSource::AddButton(bool down) {
   if (down) {
+    flinging_ = false;  // touching the content stops a fling
     if (pressed_ || !pointerIn_ || !IsWindow(pointerHwnd_)) return;
     pressed_ = true;
-    dragging_ = false;
+    dragging_ = swiping_ = false;
     pressHwnd_ = pointerHwnd_;
     pressClient_ = pointerClient_;
     pressScreen_ = pointerScreen_;
+    pressTime_ = std::chrono::steady_clock::now();
     return;
   }
   if (!pressed_) return;
   pressed_ = false;
   if (!IsWindow(pressHwnd_)) {
-    dragging_ = false;
+    dragging_ = swiping_ = false;
+    return;
+  }
+  if (swiping_) {
+    swiping_ = false;
+    const bool recent = std::chrono::steady_clock::now() - swipeLastTime_ < 100ms;
+    if (recent && std::hypot(swipeVel_[0], swipeVel_[1]) > 300.0f) {
+      flinging_ = true;
+      flingHwnd_ = pressHwnd_;
+      flingScreen_ = pressScreen_;
+      flingLastTime_ = std::chrono::steady_clock::now();
+    }
     return;
   }
   if (dragging_) {
@@ -335,27 +405,52 @@ void WindowCaptureSource::AddButton(bool down) {
         reinterpret_cast<uintptr_t>(pressHwnd_));
 }
 
-void WindowCaptureSource::AddWheel(float steps) {
-  if (!pointerIn_ || !IsWindow(pointerHwnd_)) return;
-  wheelAccum_ += steps * WHEEL_DELTA;
-  const int delta = static_cast<int>(wheelAccum_);
+void WindowCaptureSource::PostWheel(HWND target, POINT screen, float units, bool horizontal) {
+  float& accum = horizontal ? wheelAccumX_ : wheelAccum_;
+  accum += units;
+  const int delta = static_cast<int>(accum);
   if (delta == 0) return;
-  wheelAccum_ -= static_cast<float>(delta);
-  // WM_MOUSEWHEEL carries screen coordinates (in the target's DPI view)
-  POINT pt = pointerScreen_;
-  PhysicalToLogicalPointForPerMonitorDPI(pointerHwnd_, &pt);
+  accum -= static_cast<float>(delta);
+  // the wheel messages carry screen coordinates (in the target's DPI view)
+  POINT pt = screen;
+  PhysicalToLogicalPointForPerMonitorDPI(target, &pt);
   const WPARAM wp = MAKEWPARAM(dragging_ ? MK_LBUTTON : 0, static_cast<WORD>(static_cast<int16_t>(delta)));
-  PostMessageW(pointerHwnd_, WM_MOUSEWHEEL, wp, MAKELPARAM(static_cast<int16_t>(pt.x), static_cast<int16_t>(pt.y)));
+  PostMessageW(target, horizontal ? WM_MOUSEHWHEEL : WM_MOUSEWHEEL, wp,
+               MAKELPARAM(static_cast<int16_t>(pt.x), static_cast<int16_t>(pt.y)));
   const auto now = std::chrono::steady_clock::now();
   if (now - lastWheelLog_ > std::chrono::seconds(1)) {
     lastWheelLog_ = now;
-    Log("Window '{}': mouse wheel ({} units) at ({}, {}) in window 0x{:X}", WideToUtf8(name_), delta,
-        pointerClient_.x, pointerClient_.y, reinterpret_cast<uintptr_t>(pointerHwnd_));
+    Log("Window '{}': mouse wheel{} ({} units) in window 0x{:X}", WideToUtf8(name_), horizontal ? " (horizontal)" : "",
+        delta, reinterpret_cast<uintptr_t>(target));
   }
+}
+
+void WindowCaptureSource::AddWheel(float steps) {
+  if (!pointerIn_ || !IsWindow(pointerHwnd_)) return;
+  flinging_ = false;
+  PostWheel(pointerHwnd_, pointerScreen_, steps * WHEEL_DELTA, false);
+}
+
+void WindowCaptureSource::AddWheelX(float steps) {
+  if (!pointerIn_ || !IsWindow(pointerHwnd_)) return;
+  flinging_ = false;
+  PostWheel(pointerHwnd_, pointerScreen_, steps * WHEEL_DELTA, true);
+}
+
+// PC keyboard mode: the window that has the keyboard focus inside the program (even while it is
+// in the background), else the part that was clicked last in VR, else the main window.
+HWND WindowCaptureSource::KeyboardTarget() const {
+  if (!hwnd_ || !IsWindow(hwnd_)) return nullptr;
+  auto inside = [&](HWND h) { return h && IsWindow(h) && (h == hwnd_ || IsChild(hwnd_, h)); };
+  GUITHREADINFO gi{sizeof(gi)};
+  if (GetGUIThreadInfo(GetWindowThreadProcessId(hwnd_, nullptr), &gi) && inside(gi.hwndFocus)) return gi.hwndFocus;
+  if (inside(pressHwnd_)) return pressHwnd_;
+  return hwnd_;
 }
 
 ID3D11Texture2D* WindowCaptureSource::Update(bool& changed) {
   changed = false;
+  UpdateFling();
 
   if (session_ && !IsWindow(hwnd_)) {
     Log("Window '{}': target window closed", WideToUtf8(name_));
