@@ -406,17 +406,20 @@ void WindowCaptureSource::AddButton(bool down) {
 }
 
 namespace {
-bool IsTkWindow(HWND root) {  // Tcl/Tk (Python tkinter: EDCoPilot): class "TkTopLevel"
+enum class Toolkit { Other, Tk, Sdl };
+Toolkit ToolkitOf(HWND root) {
   wchar_t cls[64]{};
   GetClassNameW(root, cls, static_cast<int>(std::size(cls)));
-  return wcsncmp(cls, L"Tk", 2) == 0;
+  if (wcsncmp(cls, L"Tk", 2) == 0) return Toolkit::Tk;     // Tcl/Tk (Python tkinter): "TkTopLevel"
+  if (wcscmp(cls, L"SDL_app") == 0) return Toolkit::Sdl;  // SDL2 (Kivy: EDCoPilot, pygame)
+  return Toolkit::Other;
 }
 }  // namespace
 
-// Some toolkits (Tk: EDCoPilot) do not scroll the window the wheel message was sent to but the
-// one that is really on screen at the message's coordinates (WindowFromPoint). Behind the game
-// that is the game, and the wheel is lost. Then the program window is brought to the top of the
-// desktop without activating it: the game keeps the focus (in VR nobody sees the desktop).
+// Tk does not scroll the window the wheel message was sent to but the one that is really on
+// screen at the message's coordinates (WindowFromPoint). Behind the game that is the game, and
+// the wheel is lost. Then the program window is brought to the top of the desktop without
+// activating it: the game keeps the focus (in VR nobody sees the desktop).
 void WindowCaptureSource::EnsureOnTopAt(HWND root, POINT screen) {
   HWND hit = WindowFromPoint(screen);
   if (!hit || GetAncestor(hit, GA_ROOT) == root) return;  // nothing (off screen) or already visible
@@ -435,12 +438,17 @@ void WindowCaptureSource::PostWheel(HWND target, POINT screen, float units, bool
   float& accum = horizontal ? wheelAccumX_ : wheelAccum_;
   accum += units;
   HWND root = GetAncestor(target, GA_ROOT);
-  // Tk: whole notches only (older Tk versions / handlers drop partial wheel deltas)
-  const int quantum = IsTkWindow(root) ? WHEEL_DELTA : 1;
+  const Toolkit tk = ToolkitOf(root);
+  // SDL turns partial notches into 0, which Kivy reads as "scroll down" whatever the direction
+  // (scrolling then jumps back and forth); old Tk handlers drop them. Whole notches only there.
+  const int quantum = tk == Toolkit::Other ? 1 : WHEEL_DELTA;
   const int delta = static_cast<int>(accum / quantum) * quantum;
   if (delta == 0) return;
   accum -= static_cast<float>(delta);
-  EnsureOnTopAt(root, screen);
+  if (tk == Toolkit::Tk) EnsureOnTopAt(root, screen);
+  // SDL/Kivy scroll at the last known mouse position, not at the wheel message's coordinates:
+  // move the (virtual) mouse there first.
+  if (tk == Toolkit::Sdl && !dragging_) Post(target, WM_MOUSEMOVE, 0, ToClient(target, screen));
   // the wheel messages carry screen coordinates (in the target's DPI view)
   POINT pt = screen;
   PhysicalToLogicalPointForPerMonitorDPI(target, &pt);
