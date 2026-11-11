@@ -40,6 +40,7 @@ class WindowCaptureSource : public ContentSource {
  private:
   // wheel units (WHEEL_DELTA = one notch) -> WM_MOUSEWHEEL / WM_MOUSEHWHEEL at a screen point
   void PostWheel(HWND target, POINT screen, float units, bool horizontal);
+  void EnsureOnTopAt(HWND root, POINT screen);  // screen point must really show `root` (Tk)
   void SwipeTo(POINT screen);
   void UpdateFling();
   HWND FindTarget() const;
@@ -95,7 +96,7 @@ class WindowCaptureSource : public ContentSource {
   HWND flingHwnd_ = nullptr;
   POINT flingScreen_{};
   std::chrono::steady_clock::time_point flingLastTime_{};
-  std::chrono::steady_clock::time_point lastWheelLog_{};
+  std::chrono::steady_clock::time_point lastWheelLog_{}, lastRaiseLog_{};
   bool postErrorLogged_ = false;
   std::chrono::steady_clock::time_point nextSearch_{};
 };

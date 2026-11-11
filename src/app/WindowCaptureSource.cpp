@@ -405,12 +405,42 @@ void WindowCaptureSource::AddButton(bool down) {
         reinterpret_cast<uintptr_t>(pressHwnd_));
 }
 
+namespace {
+bool IsTkWindow(HWND root) {  // Tcl/Tk (Python tkinter: EDCoPilot): class "TkTopLevel"
+  wchar_t cls[64]{};
+  GetClassNameW(root, cls, static_cast<int>(std::size(cls)));
+  return wcsncmp(cls, L"Tk", 2) == 0;
+}
+}  // namespace
+
+// Some toolkits (Tk: EDCoPilot) do not scroll the window the wheel message was sent to but the
+// one that is really on screen at the message's coordinates (WindowFromPoint). Behind the game
+// that is the game, and the wheel is lost. Then the program window is brought to the top of the
+// desktop without activating it: the game keeps the focus (in VR nobody sees the desktop).
+void WindowCaptureSource::EnsureOnTopAt(HWND root, POINT screen) {
+  HWND hit = WindowFromPoint(screen);
+  if (!hit || GetAncestor(hit, GA_ROOT) == root) return;  // nothing (off screen) or already visible
+  constexpr UINT kFlags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER;
+  SetWindowPos(root, HWND_TOPMOST, 0, 0, 0, 0, kFlags);
+  SetWindowPos(root, HWND_NOTOPMOST, 0, 0, 0, 0, kFlags);  // stays above the normal windows
+  const auto now = std::chrono::steady_clock::now();
+  if (now - lastRaiseLog_ > std::chrono::seconds(5)) {
+    lastRaiseLog_ = now;
+    Log("Window '{}': brought to the front of the desktop (covered at the scroll position), focus unchanged",
+        WideToUtf8(name_));
+  }
+}
+
 void WindowCaptureSource::PostWheel(HWND target, POINT screen, float units, bool horizontal) {
   float& accum = horizontal ? wheelAccumX_ : wheelAccum_;
   accum += units;
-  const int delta = static_cast<int>(accum);
+  HWND root = GetAncestor(target, GA_ROOT);
+  // Tk: whole notches only (older Tk versions / handlers drop partial wheel deltas)
+  const int quantum = IsTkWindow(root) ? WHEEL_DELTA : 1;
+  const int delta = static_cast<int>(accum / quantum) * quantum;
   if (delta == 0) return;
   accum -= static_cast<float>(delta);
+  EnsureOnTopAt(root, screen);
   // the wheel messages carry screen coordinates (in the target's DPI view)
   POINT pt = screen;
   PhysicalToLogicalPointForPerMonitorDPI(target, &pt);
