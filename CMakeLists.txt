@@ -124,5 +124,5 @@ add_custom_command(TARGET EDOverlayBoard POST_BUILD
 add_dependencies(EDOverlayBoard EDOverlayBoard_Layer)
 
 install(TARGETS EDOverlayBoard EDOverlayBoard_Layer RUNTIME DESTINATION .)
-install(FILES resources/EDOverlayBoard_Layer.json README.md LICENSE DESTINATION .)
+install(FILES resources/EDOverlayBoard_Layer.json README.md README.de.md LICENSE DESTINATION .)
 install(FILES resources/config.example.json DESTINATION resources)

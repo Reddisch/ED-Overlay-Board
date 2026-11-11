@@ -1,0 +1,329 @@
+# ED Overlay Board
+
+**Deutsch** | [English](README.md)
+
+Frei verschiebbare VR-Overlay-Fenster für **Elite Dangerous** (und andere OpenXR-Spiele):
+Kneeboard-Seiten, EDCoPilot, EDDiscovery, EDMC, ein Browser mit Inara/Spansh – direkt im Cockpit.
+
+OpenXR-API-Layer plus Begleit-App: Mehrere Desktop-Fenster und Bilder („Kneeboard“-Seiten) schweben als
+Panels im VR. Sie lassen sich mit Controllern oder Handtracking greifen, verschieben, vergrößern und
+bedienen (klicken, scrollen, tippen); Zentrieren per Tastatur-Hotkey oder HOTAS-/Joystick-Taste.
+Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculus, WMR, Pimax …).
+
+> **Hinweis:** Dieses Programm wurde mit Hilfe von KI (Claude von Anthropic) erstellt –
+> Code, Texte und Installer. Getestet wurde es vom Autor mit Quest 3, Virtual Desktop (VDXR) und Elite Dangerous.
+
+## Funktionen
+
+- **Mehrere Fenster gleichzeitig**, jedes einzeln konfigurierbar
+- **Quellen**
+  - `window` – spiegelt ein beliebiges Desktop-Fenster (Windows.Graphics.Capture), optional zugeschnitten
+  - `images` – Bilder aus einem Ordner als blätterbare Kneeboard-Seiten (PNG, JPG, BMP, GIF, TIFF, WebP)
+- **Greifen & Verschieben** mit Controllern oder **echtem Handtracking** (`XR_EXT_hand_tracking`)
+- **Größe ändern** per Thumbstick oder mit beiden Händen (auseinanderziehen)
+- **Programmfenster im VR bedienen:** klicken, ziehen, scrollen per Stick oder **Wischen wie am Handy**
+  (mit Schwung) – mit Controller und Handtracking
+- **PC-Tastatur ins VR-Fenster:** tippen in ein Programmfenster, während Elite den Fokus behält
+- **Zentrieren** per Tastatur-Hotkey **oder Joystick-/HOTAS-Taste** (DirectInput, bis zu 128 Tasten,
+  auch **Tastenkombinationen** wie 5 + 12)
+- Fenster einzeln/alle ein-/ausblenden, Seiten blättern, Interaktion sperren
+- **Blickabhängig:** Fenster erscheinen nur, wenn man in ihre Richtung schaut, und sind nur dann bedienbar
+- **Einstellungsfenster** (Tray-Icon): Fenster anlegen/bearbeiten, Programm aus Liste wählen, Tastatur- und
+  Joystick-Tasten per Tastendruck „lernen“ – alles wirkt sofort
+- **VR-Menü** (z. B. Strg+Alt+M): Fenster ein/aus, Zentrieren, Sperren, Tastatur, Schärfe, Helligkeit,
+  Effekte – mit Controller oder Pinch bedienbar
+- **Abdunkeln mit Filterfarbe** pro Fenster (z. B. helle PNGs gegen Blenden) – funktioniert mit jeder Runtime, auch VDXR
+- **Einblendeffekte** pro Fenster: Hologramm, Zoom, Röhren-TV
+- **Klickgeräusch** bei Klicks im VR (Lautstärke einstellbar)
+- **Deutsch / Englisch**
+- **Titelleiste ausblenden** und Ränder abschneiden für gespiegelte Fenster
+- **Ruhiges Bild:** Inhalte werden per Mipmapping passend zur Displayauflösung vorgefiltert (kein Flimmern
+  bei großen Quellen wie 4K-Kneeboards). `settings.sharpness`: 1.0 = ruhig, 1.5–2 = schärfer
+- Layout wird automatisch gespeichert, Zeiger-Cursor, Rahmen beim Anvisieren, Haptik
+
+## Wie es funktioniert
+
+```
+ EDOverlayBoard.exe  ──(Shared Memory + geteilte GPU-Texturen)──►  EDOverlayBoard_Layer.dll
+ Begleit-App: Fenster-Capture,                                     OpenXR-API-Layer im Spiel:
+ Kneeboard, Config, Hotkeys, Joystick                              Quad-Layer, Greifen, Handtracking
+```
+
+Die DLL wird vom OpenXR-Loader automatisch in jedes OpenXR-Spiel geladen (wie bei OpenKneeboard).
+Sie zeigt nur dann etwas an, wenn die Begleit-App läuft. App und Layer müssen dieselbe Version haben.
+
+## Voraussetzungen
+
+| | |
+|---|---|
+| Windows 10 (2004+) / 11 | |
+| eine **OpenXR-Runtime** | Virtual Desktop (**VDXR**), SteamVR, Meta/Oculus, WMR, Pimax, Varjo … |
+| Elite Dangerous über **OpenXR** | Elite spricht nur OpenVR – z. B. **OpenComposite** übersetzt OpenVR → OpenXR (oder ein anderer Weg zu OpenXR) |
+| Spiel nutzt **Direct3D 11** | trifft auf Elite Dangerous zu |
+
+### Elite Dangerous mit OpenComposite einrichten
+
+1. [OpenComposite](https://gitlab.com/znixian/OpenOVR) installieren – entweder systemweit über den
+   OpenComposite-Launcher („Switch to OpenComposite“) oder nur für Elite, indem die `openvr_api.dll`
+   im Spielordner durch die von OpenComposite ersetzt wird.
+2. Für **Virtual Desktop**: in VD als OpenXR-Runtime **VDXR** wählen. SteamVR wird dann nicht mehr benötigt.
+3. Elite normal im VR-Modus starten.
+
+## Installation & Start
+
+**Mit Installer (empfohlen):**
+
+1. `EDOverlayBoard-Setup-<version>.exe` von der Releases-Seite herunterladen und ausführen.
+   Es werden keine Administratorrechte benötigt: installiert wird nach
+   `%LOCALAPPDATA%\Programs\ED Overlay Board`, der OpenXR-Layer wird für deinen Benutzer registriert.
+   Optional: Desktop-Verknüpfung und „Mit Windows starten“.
+2. ED Overlay Board läuft danach im Infobereich der Taskleiste (Tray-Icon).
+3. Elite starten – die Fenster erscheinen vor dir. Im Reiter *Status* steht dann „Verbunden mit …“.
+
+Nach einem Update App und Elite neu starten.
+
+Deinstallieren über Windows-Einstellungen → Apps. Dabei wird der Layer abgemeldet;
+`config.json` und deine Bilder bleiben im Installationsordner erhalten.
+
+Windows SmartScreen kann beim ersten Start warnen, weil der Installer nicht signiert ist
+(„Weitere Informationen“ → „Trotzdem ausführen“).
+
+**Ohne Installer (ZIP):** Release-ZIP entpacken (z. B. nach `C:\Tools\EDOverlayBoard`) und
+`EDOverlayBoard.exe` starten. Beim ersten Start wird der Layer registriert und `config.json` aus
+`resources\config.example.json` erzeugt. Layer wieder entfernen: `EDOverlayBoard.exe --uninstall-layer`.
+
+`config.json`, Log und Bilderordner liegen neben der exe. Ist dieser Ordner schreibgeschützt
+(z. B. unter `C:\Program Files`), verwendet die App stattdessen `%LOCALAPPDATA%\EDOverlayBoard`.
+Der genaue Ort steht im Reiter *Status* unter „Über“.
+
+Den Layer kurzfristig abschalten: Umgebungsvariable `DISABLE_XR_APILAYER_EDOB_OVERLAY_BOARD=1`.
+
+## Einstellungen
+
+- **Am PC:** Doppelklick auf das Tray-Icon (oder erneuter Start der exe) öffnet das Einstellungsfenster.
+  Reiter *Fenster* (anlegen, löschen, Programm auswählen, Titelleiste ausblenden, Position/Größe, Wischen),
+  *Tasten* (Aktion wählen, „Tastatur“/„Joystick“ anklicken und die Taste(n) drücken, Esc = abbrechen),
+  *Allgemein* (u. a. Klickgeräusch, Wisch-Tempo) und *Status*. Schließen des Fensters beendet die App
+  nicht – „Beenden“ im Tray-Menü.
+- **Im VR:** Strg+Alt+M (oder eine eigene Belegung „VR-Menü ein/aus“) holt das Menü vor dich.
+  Controller: Trigger = klicken, Stick = scrollen, Grip = verschieben.
+  Handtracking: Pinch = klicken, Pinch auf die orange Kopfleiste oder den Rand = verschieben.
+  Pro Fenster lässt sich dort umschalten: sichtbar, verschiebbar und (bei Programmfenstern) klickbar.
+  Unter „Fenster-Darstellung“ (Fenster mit `<` `>` wählen): Filterfarbe, Helligkeit und Einblendeffekt.
+  Der Knopf „PC-Tastatur ins Fenster“ schaltet den Tastatur-Modus ein und aus.
+- **Sprache:** Deutsch oder Englisch, per Schieberegler im Reiter *Allgemein* oder im VR-Menü
+  (Standard: Windows-Anzeigesprache).
+
+## Bedienung im VR
+
+| Aktion | Controller | Handtracking |
+|---|---|---|
+| Fenster greifen/verschieben | Grip halten, Hand bewegen | Pinch (Daumen + Zeigefinger) halten |
+| Am Rand greifen | Grip oder Trigger auf dem Rahmen | Pinch auf dem Rahmen |
+| Programmfenster bedienen (z. B. EDCoPilot): klicken | Trigger | kurzer Pinch |
+| In Programmfenstern scrollen | Stick hoch/runter/seitlich oder Trigger halten und wischen | Pinch halten und wischen |
+| Ziehen mit der Maus (Schieberegler, Scrollbalken, Text markieren) | Trigger ca. 0,5 s still halten, dann ziehen | Pinch ca. 0,5 s still halten, dann ziehen |
+| Kneeboard blättern | Trigger (rechte/linke Hälfte = vor/zurück) | kurzer Pinch |
+| Größe ändern | beim Greifen Stick hoch/runter | mit zweiter Hand ebenfalls greifen und auseinanderziehen |
+| Abstand näher/weiter | beim Greifen Stick links/rechts | – |
+| Zwei-Hand-Skalierung | beide Grips am selben Fenster | beide Hände pinchen |
+
+Um jedes verschiebbare Fenster liegt ein Greifrand, der beim Zeigen als oranger Rahmen erscheint
+(hell = hier wird gegriffen). Auf dem Rand wird nie geklickt. Nicht verschiebbare Fenster haben keinen Rahmen.
+
+Bedienbare Programmfenster (`forwardClicks`, im VR-Menü „klickbar“) verhalten sich wie das VR-Menü:
+Trigger bzw. Pinch ist die linke Maustaste, verschoben wird mit Grip oder über den Rand. Die Maus-Eingaben
+gehen als Fensternachrichten an das Programm: Das Spiel behält den Fokus, die echte Maus bewegt sich nicht.
+Funktioniert mit Browsern, EDCoPilot und den meisten Win32-/WPF-/WinForms-Programmen; Programme, die als
+Administrator laufen, nehmen die Eingaben nicht an.
+
+**Wischen scrollt** (`dragScroll`, Standard an): Trigger/Pinch halten und ziehen scrollt den Inhalt wie
+am Handy (auch seitlich), Loslassen in der Bewegung scrollt mit Schwung weiter. Wer erst ca. 0,5 s still
+hält und dann zieht, zieht wie mit der Maus. Tempo: `swipeSpeed` (Reiter *Allgemein*). In manchen
+Programmen (z. B. EDCoPilot) wird in ganzen Mausrad-Rasten gescrollt, dort ist das Wischen etwas stufiger.
+
+**PC-Tastatur ins VR-Fenster** (Aktion `toggleKeyboard`, z. B. Strg+Alt+K, oder Knopf im VR-Menü): Die
+Tasten der echten Tastatur gehen an das zuletzt im VR angeklickte Programmfenster (blauer Rahmen), Elite
+behält den Fokus, bekommt die Tasten aber nicht. Erneut auslösen = zurück an Elite. Eigene Hotkeys
+funktionieren weiter; Tasten, die Programme wie VoiceAttack oder EDCoPilot simulieren, gehen weiter an das
+Spiel. Ein Klick in ein anderes Programmfenster lenkt die Tastatur dorthin. Der Modus läuft nur, solange
+das Spiel im VR läuft, und endet von selbst, wenn es beendet wird. Text tippen klappt in den meisten
+Programmen; Tastenkürzel mit Strg/Alt erkennen manche Programme so nicht.
+
+Controller funktionieren, sobald das Spiel Controller-Bindings anmeldet (OpenComposite tut das).
+Der Layer hängt seine Aktionen nur an Controller-Profile an, die das Spiel selbst nutzt, und verändert
+die Spielsteuerung nicht. Handtracking wird genutzt, wenn die Runtime `XR_EXT_hand_tracking` kann
+(VDXR, Meta, …) und für die jeweilige Hand kein Controller aktiv ist.
+
+## Konfiguration (`config.json`)
+
+Alles lässt sich im Einstellungsfenster einstellen; die Datei muss man nicht von Hand bearbeiten.
+
+```json
+{
+  "settings": { "language": "de", "showCursor": true, "haptics": true, "clickVolume": 0.5, "scaleSpeed": 1.0,
+                "pushPullSpeed": 0.75, "swipeSpeed": 1.0, "lookToShow": true, "lookMarginDeg": 10,
+                "sharpness": 1.0 },
+  "windows": [
+    { "name": "Klemmbrett", "type": "images", "folder": "klemmbrett",
+      "position": [-0.3, -0.35, -0.45], "rotation": [-40, 30, 0], "width": 0.3 },
+    { "name": "EDDiscovery", "type": "window", "processName": "EDDiscovery.exe",
+      "position": [0.5, 0.05, -0.75], "rotation": [0, -35, 0], "width": 0.6 },
+    { "name": "Browser", "type": "window", "titleContains": "Spansh",
+      "crop": [0, 120, 1920, 940], "width": 0.7 }
+  ],
+  "bindings": [
+    { "action": "recenter", "key": "Ctrl+Alt+Numpad5" },
+    { "action": "recenter", "joystick": "VKB", "button": 12 },
+    { "action": "toggleMenu", "joystick": "T.Flight", "buttons": [5, 12] },
+    { "action": "toggleKeyboard", "key": "Ctrl+Alt+K" },
+    { "action": "toggleWindow", "window": "Klemmbrett", "key": "Ctrl+Alt+Numpad1" }
+  ]
+}
+```
+
+### Allgemein (`settings`)
+
+| Feld | Bedeutung |
+|---|---|
+| `language` | `de`, `en` oder leer = Windows-Anzeigesprache |
+| `showCursor` | Zeiger-Punkt auf den Fenstern anzeigen |
+| `haptics` | Vibration der Controller |
+| `clickVolume` | Lautstärke des Klickgeräuschs, 0 = aus |
+| `scaleSpeed` / `pushPullSpeed` | Tempo für Größe ändern bzw. Abstand ändern per Stick |
+| `swipeSpeed` | Tempo beim Wisch-Scrollen |
+| `lookToShow` / `lookMarginDeg` | Fenster nur beim Hinsehen zeigen / zusätzlicher Winkel um das Fenster |
+| `sharpness` | 1.0 = ruhiges Bild, 1.5–2 = schärfer, kann flimmern |
+| `menuWidth` | Breite des VR-Menüs in Metern |
+
+### Fenster (`windows`, max. 15)
+
+| Feld | Bedeutung |
+|---|---|
+| `name` | Anzeigename, wird von Bindings referenziert |
+| `type` | `window` oder `images` |
+| `processName` | (window) Prozessname, z. B. `EDDiscovery.exe`, `EDMarketConnector.exe`, `msedge.exe` |
+| `titleContains` | (window) Teil des Fenstertitels (Groß-/Kleinschreibung egal) |
+| `hideTitleBar` | (window) nur den Inhaltsbereich zeigen – ohne Titelleiste und Rahmen |
+| `trim` | (window) zusätzlich Ränder abschneiden `[links, oben, rechts, unten]` in Pixeln |
+| `crop` | (window) Ausschnitt `[x, y, breite, höhe]` in Pixeln, z. B. um Browser-Leisten abzuschneiden |
+| `captureCursor` | (window) Mauszeiger mit aufnehmen |
+| `forwardClicks` | (window) im VR mit Trigger/Pinch/Stick bedienbar – klicken, ziehen, scrollen (Standard `true`) |
+| `dragScroll` | (window) Halten und Wischen scrollt wie am Touchscreen (Standard `true`) |
+| `folder` / `images` | (images) Bilderordner bzw. Dateiliste, relativ zur config.json |
+| `position` | Meter relativ zur zentrierten Kopfposition: x = rechts, y = oben, −z = vorne |
+| `rotation` | Grad: `[Neigung, Drehung, Rollen]` |
+| `width` | Breite in Metern (Höhe ergibt sich aus dem Seitenverhältnis) |
+| `opacity` | 0.05 – 1.0 (wenn die Runtime `XR_KHR_composition_layer_color_scale_bias` kann) |
+| `tint` | Filterfarbe `[r, g, b]` (0 – 1), wird auf den Inhalt multipliziert; Weiß = unverändert, z. B. `[1.0, 0.62, 0.25]` = Bernstein |
+| `brightness` | 0.1 – 1.0, dunkelt den Inhalt zusätzlich ab (funktioniert mit jeder Runtime, auch VDXR) |
+| `effect` | Einblendeffekt: `none`, `hologram`, `zoom` oder `tv` (läuft auch beim Ausblenden und beim Hin-/Wegsehen) |
+| `visible` | beim Start sichtbar |
+| `locked` | Fenster kann nicht gegriffen werden (kein Rahmen; ein Pinch klickt sofort) |
+| `lookToShow` | `true` = nur sichtbar und bedienbar, wenn man in seine Richtung schaut; `false` = immer sichtbar (Standard: `settings.lookToShow`) |
+
+Position, Rotation, Größe, Sichtbarkeit und Seite werden beim Verschieben automatisch zurückgeschrieben.
+Das gespiegelte Fenster darf hinter dem Spiel liegen, aber **nicht minimiert** sein.
+
+### Tasten (`bindings`)
+
+| `action` | Wirkung |
+|---|---|
+| `recenter` | Fenster vor der aktuellen Blickrichtung neu ausrichten |
+| `toggleAll` | alle Fenster ein-/ausblenden |
+| `toggleWindow` | ein Fenster (`window`) ein-/ausblenden |
+| `nextPage` / `prevPage` | Kneeboard-Seite blättern (`window`, leer = alle) |
+| `toggleInteraction` | Greifen sperren/entsperren (gegen versehentliches Verschieben) |
+| `toggleMenu` | VR-Menü ein-/ausblenden |
+| `toggleKeyboard` | PC-Tastatur an das zuletzt angeklickte Programmfenster im VR / zurück an das Spiel |
+| `openSettings` | Einstellungsfenster am PC öffnen |
+
+- **Tastatur:** `"key": "Ctrl+Alt+Numpad5"` – Modifier `Ctrl`, `Alt`, `Shift`, `Win`; Tasten `A`–`Z`, `0`–`9`,
+  `F1`–`F24`, `Numpad0`–`Numpad9`, `NumpadAdd`, `Home`, `End`, `PageUp`, `Insert`, `Pause`, …
+  Systemweit registriert, funktioniert also auch, wenn Elite den Fokus hat.
+- **Joystick:** `"joystick": "<Teil des Gerätenamens>", "button": <Nummer>`. Namen und Nummern anzeigen:
+  ```
+  EDOverlayBoard.exe --joysticks
+  ```
+  Die Abfrage ist nicht exklusiv: dieselbe Taste kann in Elite auf *„HMD-Ausrichtung zurücksetzen“* liegen.
+  **Kombinationen** auf einem Gerät: `"buttons": [5, 12]` (im Einstellungsfenster: Tasten gleichzeitig halten,
+  dann loslassen). Ist eine Taste allein und zusätzlich in einer Kombination belegt, löst sie allein erst beim
+  Loslassen aus – und nur, wenn die Kombination dabei nicht benutzt wurde (z. B. Taste 5 als „Umschalttaste“).
+
+## Fehlersuche
+
+- App-Log: `EDOverlayBoard.log` im Datenordner (neben der exe bzw. `%LOCALAPPDATA%\EDOverlayBoard`)
+- Layer-Log (im Spiel): `%LOCALAPPDATA%\EDOverlayBoard\layer-<spiel>.log`
+- Keine Fenster im Spiel → steht im Layer-Log überhaupt etwas? Wenn nicht, läuft das Spiel nicht über
+  OpenXR (OpenComposite prüfen) oder der Layer ist nicht registriert (App einmal starten).
+- App und Layer verbinden sich nicht → beide auf derselben Version? Nach einem Update App und Spiel neu starten.
+- `cannot open shared texture … different GPU` → App und Spiel laufen auf verschiedenen Grafikkarten
+  (Laptop mit iGPU): beiden in den Windows-Grafikeinstellungen dieselbe GPU zuweisen.
+- Scrollen/Klicken kommt in einem Programm nicht an → steht im App-Log „mouse wheel“ bzw. „click at“?
+  Läuft das Programm als Administrator, nimmt es keine Eingaben an.
+
+## Selbst bauen
+
+Voraussetzungen: Visual Studio 2022 mit „Desktopentwicklung mit C++“, Windows SDK 10.0.19041+,
+CMake ≥ 3.20 (in Visual Studio enthalten).
+
+```
+cmake -S . -B build -A x64
+cmake --build build --config Release
+```
+
+OpenXR-SDK-Header und nlohmann/json werden beim Konfigurieren automatisch (versioniert) geladen.
+Ergebnis in `build\bin\Release\`: `EDOverlayBoard.exe`, `EDOverlayBoard_Layer.dll`, `EDOverlayBoard_Layer.json`.
+
+Hinweis: Solange ein OpenXR-Spiel läuft, ist die Layer-DLL gesperrt und kann nicht neu gebaut werden.
+
+**Installer bauen** (benötigt zusätzlich [Inno Setup 6](https://jrsoftware.org/isdl.php)):
+
+```
+powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
+```
+
+Ergebnis: `dist\EDOverlayBoard-Setup-<version>.exe`. Ein Git-Tag `v*` lässt die GitHub Action
+ein Release mit ZIP und Installer erzeugen.
+
+## Projektstruktur
+
+```
+src/app/      Begleit-App
+  main.cpp                 Kommandozeile, Layer-Registrierung beim Start
+  App.*                    Hauptschleife, geteilte Texturen, Aktionen, Speichern
+  WindowCaptureSource.*    Fenster spiegeln (Windows.Graphics.Capture), Maus-Eingaben, Wischen
+  ImageSource.*            Kneeboard-Bilder (WIC)
+  HotkeyManager.*          globale Tastatur-Hotkeys
+  KeyboardCapture.*        PC-Tastatur ins VR-Fenster (Low-Level-Keyboard-Hook)
+  JoystickManager.*        DirectInput-Joystick-Tasten und -Kombinationen
+  LayerRegistration.*      OpenXR-Implicit-Layer in HKCU eintragen
+  Config.*, D3D.*          config.json, D3D11, Platzhalter-Panels, Filterfarbe (Shader)
+  Gui.*                    Einstellungsfenster und VR-Menü (Dear ImGui)
+  ClickSound.*             Klickgeräusch
+src/layer/    OpenXR-API-Layer (DLL)
+  Layer.cpp                Loader-Verhandlung, abgefangene OpenXR-Funktionen
+  OverlaySession.*         Swapchains, Quad-Layer, Greifen/Skalieren/Zentrieren
+  Input.*                  eigene Actions (in die Spiel-Bindings eingehängt), Handtracking
+src/common/   Ipc.h (Shared-Memory-Protokoll), VrMath.h, Log
+resources/    EDOverlayBoard_Layer.json (Layer-Manifest), config.example.json, Icon
+installer/    Inno-Setup-Skript und Build-Skript für den Installer
+```
+
+## Roadmap
+
+- Direct3D 12 / Vulkan im Layer (für andere Spiele)
+- Rechtsklick und Doppelklick in gespiegelten Fenstern
+- PDF-Seiten als Kneeboard
+- Fenster an Kopf/Hand anheften
+
+## Rechtliches
+
+Lizenz: MIT (siehe [LICENSE](LICENSE)). Verwendet [Dear ImGui](https://github.com/ocornut/imgui) (MIT),
+[nlohmann/json](https://github.com/nlohmann/json) (MIT) und die OpenXR-SDK-Header (Apache 2.0).
+Elite Dangerous ist eine Marke von Frontier Developments plc. Dieses Projekt ist ein inoffizielles
+Fan-Werkzeug und steht in keiner Verbindung zu Frontier Developments, Valve, Khronos oder Virtual Desktop.
+Inspiriert von OpenKneeboard, aber eigenständig entwickelt.
+
+Entstanden mit Hilfe von KI: Der Quellcode, die Texte und der Installer wurden zusammen mit
+Claude (Anthropic) geschrieben; Idee, Anforderungen, Tests und Veröffentlichung: Andreas Rettig.

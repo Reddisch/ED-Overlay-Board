@@ -61,6 +61,7 @@ Source: "{#SourceDir}\EDOverlayBoard_Layer.json"; DestDir: "{app}"; Flags: ignor
 Source: "{#SourceDir}\resources\*"; DestDir: "{app}\resources"; Flags: ignoreversion recursesubdirs
 Source: "{#SourceDir}\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs
 Source: "{#SourceDir}\README.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\README.de.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Dirs]

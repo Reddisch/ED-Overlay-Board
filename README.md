@@ -1,155 +1,170 @@
 # ED Overlay Board
 
-Frei verschiebbare VR-Overlay-Fenster für **Elite Dangerous** (und andere OpenXR-Spiele):
-Kneeboard-Seiten, EDDiscovery, EDMC, ein Browser mit Inara/Spansh – direkt im Cockpit.
+[Deutsch](README.de.md) | **English**
 
-*English summary: OpenXR API layer + companion app that shows multiple desktop windows and image
-"kneeboard" pages as floating panels in VR. Panels can be grabbed, moved and resized with controllers
-or hand tracking; recentering via keyboard hotkeys or HOTAS/joystick buttons. Works with any OpenXR
-runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculus, WMR, Pimax …); Elite Dangerous needs OpenComposite.*
+Freely movable VR overlay windows for **Elite Dangerous** (and other OpenXR games):
+kneeboard pages, EDCoPilot, EDDiscovery, EDMC, a browser with Inara/Spansh – right in the cockpit.
 
-> **Hinweis / Note:** Dieses Programm wurde mit Hilfe von KI (Claude von Anthropic) erstellt –
-> Code, Texte und Installer. Getestet wurde es vom Autor mit Quest 3, Virtual Desktop (VDXR) und Elite Dangerous.
-> *This program was created with the help of AI (Claude by Anthropic) – code, texts and installer.
-> It was tested by the author with Quest 3, Virtual Desktop (VDXR) and Elite Dangerous.*
+An OpenXR API layer plus a companion app: several desktop windows and images ("kneeboard" pages) float
+as panels in VR. You can grab, move, resize and use them (click, scroll, type) with controllers or hand
+tracking; recenter with a keyboard hotkey or a HOTAS/joystick button. Works with any OpenXR runtime
+(Virtual Desktop VDXR, SteamVR, Meta/Oculus, WMR, Pimax …).
 
-## Funktionen
+> **Note:** This program was created with the help of AI (Claude by Anthropic) – code, texts and
+> installer. It was tested by the author with Quest 3, Virtual Desktop (VDXR) and Elite Dangerous.
 
-- **Mehrere Fenster gleichzeitig**, jedes einzeln konfigurierbar
-- **Quellen**
-  - `window` – spiegelt ein beliebiges Desktop-Fenster (Windows.Graphics.Capture), optional zugeschnitten
-  - `images` – Bilder aus einem Ordner als blätterbare Kneeboard-Seiten (PNG, JPG, BMP, GIF, TIFF, WebP)
-- **Greifen & Verschieben** mit Controllern oder **echtem Handtracking** (`XR_EXT_hand_tracking`)
-- **Größe ändern** per Thumbstick oder mit beiden Händen (auseinanderziehen)
-- **Zentrieren** per Tastatur-Hotkey **oder Joystick-/HOTAS-Taste** (DirectInput, bis zu 128 Tasten)
-- Fenster einzeln/alle ein-/ausblenden, Seiten blättern, Interaktion sperren
-- **Blickabhängig:** Fenster erscheinen nur, wenn man in ihre Richtung schaut, und sind nur dann bedienbar
-- **Einstellungsfenster** (Tray-Icon): Fenster anlegen/bearbeiten, Programm aus Liste wählen, Tastatur- und
-  Joystick-Tasten per Tastendruck „lernen“ – alles wirkt sofort
-- **VR-Menü** (z. B. Strg+Alt+M): Fenster ein/aus, Zentrieren, Sperren, Schärfe, Helligkeit, Effekte – mit Controller oder Pinch bedienbar
-- **Abdunkeln mit Filterfarbe** pro Fenster (z. B. helle PNGs gegen Blenden) – funktioniert mit jeder Runtime, auch VDXR
-- **Einblendeffekte** pro Fenster: Hologramm, Zoom, Röhren-TV
-- **Klickgeräusch** bei Klicks im VR (Lautstärke einstellbar)
-- **Deutsch / Englisch**
-- **Titelleiste ausblenden** und Ränder abschneiden für gespiegelte Fenster
-- **Ruhiges Bild:** Inhalte werden per Mipmapping passend zur Displayauflösung vorgefiltert (kein Flimmern bei großen Quellen wie 4K-Kneeboards). `settings.sharpness`: 1.0 = ruhig, 1.5–2 = schärfer
-- Layout wird automatisch gespeichert, Zeiger-Cursor, Rahmen beim Anvisieren, Haptik
+## Features
 
-## Wie es funktioniert
+- **Several windows at once**, each configured separately
+- **Sources**
+  - `window` – mirrors any desktop window (Windows.Graphics.Capture), optionally cropped
+  - `images` – pictures from a folder as kneeboard pages you can turn (PNG, JPG, BMP, GIF, TIFF, WebP)
+- **Grab & move** with controllers or **real hand tracking** (`XR_EXT_hand_tracking`)
+- **Resize** with the thumbstick or with both hands (pull apart)
+- **Use program windows in VR:** click, drag, scroll with the thumbstick or **swipe like on a phone**
+  (with fling) – with controllers and hand tracking
+- **PC keyboard into a VR window:** type into a program window while Elite keeps the focus
+- **Recenter** with a keyboard hotkey **or a joystick/HOTAS button** (DirectInput, up to 128 buttons,
+  also **button combinations** such as 5 + 12)
+- Show/hide single windows or all of them, turn pages, lock interaction
+- **Gaze dependent:** windows only appear (and can only be used) when you look towards them
+- **Settings window** (tray icon): add/edit windows, pick a program from a list, "learn" keyboard and
+  joystick buttons by pressing them – everything applies immediately
+- **VR menu** (e.g. Ctrl+Alt+M): windows on/off, recenter, lock, keyboard, sharpness, brightness,
+  effects – usable with controllers or pinch
+- **Dimming with a filter color** per window (e.g. against bright PNGs) – works with every runtime, including VDXR
+- **Show effects** per window: hologram, zoom, CRT TV
+- **Click sound** for clicks in VR (adjustable volume)
+- **German / English**
+- **Hide the title bar** and trim the edges of mirrored windows
+- **Calm picture:** content is pre-filtered with mipmaps to match the display resolution (no shimmer with
+  large sources such as 4K kneeboards). `settings.sharpness`: 1.0 = calm, 1.5–2 = sharper
+- Layout is saved automatically, pointer cursor, frame when pointing at a window, haptics
+
+## How it works
 
 ```
- EDOverlayBoard.exe  ──(Shared Memory + geteilte GPU-Texturen)──►  EDOverlayBoard_Layer.dll
- Begleit-App: Fenster-Capture,                                     OpenXR-API-Layer im Spiel:
- Kneeboard, Config, Hotkeys, Joystick                              Quad-Layer, Greifen, Handtracking
+ EDOverlayBoard.exe  ──(shared memory + shared GPU textures)──►  EDOverlayBoard_Layer.dll
+ companion app: window capture,                                  OpenXR API layer in the game:
+ kneeboard, config, hotkeys, joystick                            quad layers, grabbing, hand tracking
 ```
 
-Die DLL wird vom OpenXR-Loader automatisch in jedes OpenXR-Spiel geladen (wie bei OpenKneeboard).
-Sie zeigt nur dann etwas an, wenn die Begleit-App läuft.
+The OpenXR loader loads the DLL into every OpenXR game automatically (like OpenKneeboard).
+It only shows something while the companion app is running. App and layer must be the same version.
 
-## Voraussetzungen
+## Requirements
 
 | | |
 |---|---|
 | Windows 10 (2004+) / 11 | |
-| eine **OpenXR-Runtime** | Virtual Desktop (**VDXR**), SteamVR, Meta/Oculus, WMR, Pimax, Varjo … |
-| Elite Dangerous über **OpenXR** | Elite spricht nur OpenVR – z. B. **OpenComposite** übersetzt OpenVR → OpenXR (oder ein anderer Weg zu OpenXR) |
-| Spiel nutzt **Direct3D 11** | trifft auf Elite Dangerous zu |
+| an **OpenXR runtime** | Virtual Desktop (**VDXR**), SteamVR, Meta/Oculus, WMR, Pimax, Varjo … |
+| Elite Dangerous via **OpenXR** | Elite only speaks OpenVR – e.g. **OpenComposite** translates OpenVR → OpenXR (or another way to OpenXR) |
+| the game uses **Direct3D 11** | true for Elite Dangerous |
 
-### Elite Dangerous mit OpenComposite einrichten
+### Setting up Elite Dangerous with OpenComposite
 
-1. [OpenComposite](https://gitlab.com/znixian/OpenOVR) installieren – entweder systemweit über den
-   OpenComposite-Launcher („Switch to OpenComposite“) oder nur für Elite, indem die `openvr_api.dll`
-   im Spielordner durch die von OpenComposite ersetzt wird.
-2. Für **Virtual Desktop**: in VD als OpenXR-Runtime **VDXR** wählen. SteamVR wird dann nicht mehr benötigt.
-3. Elite normal im VR-Modus starten.
+1. Install [OpenComposite](https://gitlab.com/znixian/OpenOVR) – either system-wide with the
+   OpenComposite launcher ("Switch to OpenComposite") or for Elite only, by replacing the
+   `openvr_api.dll` in the game folder with the one from OpenComposite.
+2. For **Virtual Desktop**: choose **VDXR** as the OpenXR runtime in VD. SteamVR is then no longer needed.
+3. Start Elite in VR mode as usual.
 
-## Installation & Start
+## Installation & start
 
-**Mit Installer (empfohlen):**
+**With the installer (recommended):**
 
-1. `EDOverlayBoard-Setup-<version>.exe` von der Releases-Seite herunterladen und ausführen.
-   Es werden keine Administratorrechte benötigt: installiert wird nach
-   `%LOCALAPPDATA%\Programs\ED Overlay Board`, der OpenXR-Layer wird für deinen Benutzer registriert.
-   Optional: Desktop-Verknüpfung und „Mit Windows starten“.
-2. ED Overlay Board läuft danach im Infobereich der Taskleiste (Tray-Icon).
-3. Elite starten – die Fenster erscheinen vor dir. Im Reiter *Status* steht dann „Verbunden mit …“.
+1. Download `EDOverlayBoard-Setup-<version>.exe` from the Releases page and run it.
+   No administrator rights are needed: it installs to `%LOCALAPPDATA%\Programs\ED Overlay Board`
+   and registers the OpenXR layer for your user. Optional: desktop shortcut and "Start with Windows".
+2. ED Overlay Board then runs in the notification area of the taskbar (tray icon).
+3. Start Elite – the windows appear in front of you. The *Status* tab then shows "Connected to …".
 
-Deinstallieren über Windows-Einstellungen → Apps. Dabei wird der Layer abgemeldet;
-`config.json` und deine Bilder bleiben im Installationsordner erhalten.
+After an update, restart the app and Elite.
 
-Windows SmartScreen kann beim ersten Start warnen, weil der Installer nicht signiert ist
-(„Weitere Informationen“ → „Trotzdem ausführen“).
+Uninstall via Windows Settings → Apps. This unregisters the layer; `config.json` and your pictures
+stay in the installation folder.
 
-**Ohne Installer (ZIP):** Release-ZIP entpacken (z. B. nach `C:\Tools\EDOverlayBoard`) und
-`EDOverlayBoard.exe` starten. Beim ersten Start wird der Layer registriert und `config.json` aus
-`resources\config.example.json` erzeugt. Layer wieder entfernen: `EDOverlayBoard.exe --uninstall-layer`.
+Windows SmartScreen may warn on the first start because the installer is not signed
+("More info" → "Run anyway").
 
-`config.json`, Log und Bilderordner liegen neben der exe. Ist dieser Ordner schreibgeschützt
-(z. B. unter `C:\Program Files`), verwendet die App stattdessen `%LOCALAPPDATA%\EDOverlayBoard`.
-Der genaue Ort steht im Reiter *Status* unter „Über“.
+**Without the installer (ZIP):** extract the release ZIP (e.g. to `C:\Tools\EDOverlayBoard`) and start
+`EDOverlayBoard.exe`. On the first start it registers the layer and creates `config.json` from
+`resources\config.example.json`. To remove the layer again: `EDOverlayBoard.exe --uninstall-layer`.
 
-Den Layer kurzfristig abschalten: Umgebungsvariable `DISABLE_XR_APILAYER_EDOB_OVERLAY_BOARD=1`.
+`config.json`, the log and the picture folders are next to the exe. If that folder is read-only
+(e.g. under `C:\Program Files`), the app uses `%LOCALAPPDATA%\EDOverlayBoard` instead.
+The exact location is shown in the *Status* tab under "About".
 
-## Einstellungen
+To switch the layer off temporarily: environment variable `DISABLE_XR_APILAYER_EDOB_OVERLAY_BOARD=1`.
 
-- **Am PC:** Doppelklick auf das Tray-Icon (oder erneuter Start der exe) öffnet das Einstellungsfenster.
-  Reiter *Fenster* (anlegen, löschen, Programm auswählen, Titelleiste ausblenden, Position/Größe),
-  *Tasten* (Aktion wählen, „Tastatur“/„Joystick“ anklicken und die Taste drücken, Esc = abbrechen),
-  *Allgemein* (u. a. Klickgeräusch) und *Status*. Schließen des Fensters beendet die App nicht – „Beenden“ im Tray-Menü.
-- **Im VR:** Strg+Alt+M (oder eine eigene Belegung „VR-Menü ein/aus“) holt das Menü vor dich.
-  Controller: Trigger = klicken, Stick = scrollen, Grip = verschieben.
-  Handtracking: Pinch = klicken, Pinch auf die orange Kopfleiste oder den Rand = verschieben.
-  Pro Fenster lässt sich dort umschalten: sichtbar, verschiebbar und (bei Programmfenstern) klickbar.
-  Unter „Fenster-Darstellung“ (Fenster mit `<` `>` wählen): Filterfarbe, Helligkeit und Einblendeffekt.
-- **Sprache:** Deutsch oder Englisch, per Schieberegler im Reiter *Allgemein* oder im VR-Menü
-  (Standard: Windows-Anzeigesprache).
+## Settings
 
-## Bedienung im VR
+- **On the PC:** double-click the tray icon (or start the exe again) to open the settings window.
+  Tabs *Windows* (add, delete, choose a program, hide title bar, position/size, swiping),
+  *Bindings* (choose an action, click "Keyboard"/"Joystick" and press the key or button(s), Esc = cancel),
+  *General* (click sound, swipe speed, …) and *Status*. Closing the window does not quit the app –
+  use "Quit" in the tray menu.
+- **In VR:** Ctrl+Alt+M (or your own binding for "VR menu on/off") brings the menu in front of you.
+  Controllers: trigger = click, thumbstick = scroll, grip = move.
+  Hand tracking: pinch = click, pinch on the orange header bar or the border = move.
+  For each window you can switch: visible, movable and (for program windows) clickable.
+  Under "Window look" (choose the window with `<` `>`): filter color, brightness and show effect.
+  The button "PC keyboard into window" switches keyboard mode on and off.
+- **Language:** German or English, with the slider in the *General* tab or in the VR menu
+  (default: Windows display language).
 
-| Aktion | Controller | Handtracking |
+## Using it in VR
+
+| Action | Controllers | Hand tracking |
 |---|---|---|
-| Fenster greifen/verschieben | Grip halten, Hand bewegen | Pinch (Daumen + Zeigefinger) halten |
-| Am Rand greifen | Grip oder Trigger auf dem Rahmen | Pinch auf dem Rahmen |
-| Programmfenster bedienen (z. B. EDCoPilot): klicken, ziehen | Trigger (halten = Maustaste halten) | Pinch (halten = Maustaste halten) |
-| In Programmfenstern scrollen | Stick hoch/runter/seitlich oder Trigger halten und wischen | Pinch halten und wischen |
-| Ziehen mit der Maus (Schieberegler, Scrollbalken, Text markieren) | Trigger ca. 0,5 s still halten, dann ziehen | Pinch ca. 0,5 s still halten, dann ziehen |
-| Kneeboard blättern | Trigger (rechte/linke Hälfte = vor/zurück) | kurzer Pinch |
-| Größe ändern | beim Greifen Stick hoch/runter | mit zweiter Hand ebenfalls greifen und auseinanderziehen |
-| Abstand näher/weiter | beim Greifen Stick links/rechts | – |
-| Zwei-Hand-Skalierung | beide Grips am selben Fenster | beide Hände pinchen |
+| Grab/move a window | hold grip, move the hand | hold a pinch (thumb + index finger) |
+| Grab at the border | grip or trigger on the frame | pinch on the frame |
+| Use a program window (e.g. EDCoPilot): click | trigger | short pinch |
+| Scroll in program windows | thumbstick up/down/sideways, or hold trigger and swipe | hold a pinch and swipe |
+| Drag with the mouse (sliders, scroll bars, selecting text) | hold the trigger still for about 0.5 s, then drag | hold the pinch still for about 0.5 s, then drag |
+| Turn kneeboard pages | trigger (right/left half = next/previous) | short pinch |
+| Resize | thumbstick up/down while grabbing | grab with the second hand too and pull apart |
+| Closer/farther | thumbstick left/right while grabbing | – |
+| Two-handed scaling | both grips on the same window | pinch with both hands |
 
-Um jedes verschiebbare Fenster liegt ein Greifrand, der beim Zeigen als oranger Rahmen erscheint
-(hell = hier wird gegriffen). Auf dem Rand wird nie geklickt. Nicht verschiebbare Fenster haben keinen Rahmen.
+Every movable window has a grab margin around it that shows up as an orange frame while you point at it
+(bright = this grabs). The margin never clicks. Windows that cannot be moved have no frame.
 
-Bedienbare Programmfenster (`forwardClicks`, im VR-Menü „klickbar“) verhalten sich wie das VR-Menü:
-Trigger bzw. Pinch ist die linke Maustaste, verschoben wird mit Grip oder über den Rand. Die Maus-Eingaben
-gehen als Fensternachrichten an das Programm: Das Spiel behält den Fokus, die echte Maus bewegt sich nicht.
-Funktioniert mit EDCoPilot; Programme, die als Administrator laufen, nehmen die Eingaben nicht an.
+Usable program windows (`forwardClicks`, "clickable" in the VR menu) behave like the VR menu: trigger or
+pinch is the left mouse button, you move them with grip or by the border. The mouse input goes to the
+program as window messages: the game keeps the focus and the real mouse does not move. Works with
+browsers, EDCoPilot and most Win32/WPF/WinForms programs; programs running as administrator do not
+accept the input.
 
-**Wischen scrollt** (`dragScroll`, Standard an): Trigger/Pinch halten und ziehen scrollt den Inhalt wie
-am Handy (auch seitlich), Loslassen in der Bewegung scrollt mit Schwung weiter. Wer erst ca. 0,5 s still
-hält und dann zieht, zieht wie mit der Maus. Tempo: `swipeSpeed` (Reiter *Allgemein*).
+**Swipe to scroll** (`dragScroll`, on by default): hold the trigger/pinch and drag to scroll the content
+like on a phone (also sideways); letting go while moving keeps it scrolling for a moment. Hold still for
+about 0.5 s first, then drag, for a normal mouse drag. Speed: `swipeSpeed` (*General* tab). Some programs
+(e.g. EDCoPilot) scroll in whole mouse-wheel notches, so swiping there is a bit steppier.
 
-**PC-Tastatur ins VR-Fenster** (Aktion `toggleKeyboard` oder Knopf im VR-Menü): Die Tasten der echten
-Tastatur gehen an das zuletzt im VR angeklickte Programmfenster (blauer Rahmen), Elite behält den Fokus,
-bekommt die Tasten aber nicht. Erneut auslösen = zurück an Elite. Eigene Hotkeys funktionieren weiter;
-Tasten, die Programme wie VoiceAttack oder EDCoPilot simulieren, gehen weiter an das Spiel. Ein Klick in
-ein anderes Programmfenster lenkt die Tastatur dorthin. Text tippen klappt in den meisten Programmen;
-Tastenkürzel mit Strg/Alt erkennen manche Programme so nicht.
+**PC keyboard into a VR window** (action `toggleKeyboard`, e.g. Ctrl+Alt+K, or the VR menu button): the
+keys of the real keyboard go to the program window you clicked last in VR (blue frame); Elite keeps the
+focus but does not get the keys. Trigger it again = back to Elite. Your own hotkeys keep working; keys
+simulated by programs such as VoiceAttack or EDCoPilot still go to the game. Clicking another program
+window sends the keyboard there. The mode only runs while the game runs in VR and ends by itself when
+the game is closed. Typing text works in most programs; some programs do not recognize Ctrl/Alt
+shortcuts this way.
 
-Controller funktionieren, sobald das Spiel Controller-Bindings anmeldet (OpenComposite tut das).
-Der Layer hängt seine Aktionen nur an Controller-Profile an, die das Spiel selbst nutzt, und verändert
-die Spielsteuerung nicht. Handtracking wird genutzt, wenn die Runtime `XR_EXT_hand_tracking` kann
-(VDXR, Meta, …) und für die jeweilige Hand kein Controller aktiv ist.
+Controllers work as soon as the game registers controller bindings (OpenComposite does). The layer
+only adds its actions to controller profiles the game itself uses and does not change the game
+controls. Hand tracking is used when the runtime supports `XR_EXT_hand_tracking` (VDXR, Meta, …) and no
+controller is active for that hand.
 
-## Konfiguration (`config.json`)
+## Configuration (`config.json`)
+
+Everything can be set in the settings window; you do not need to edit the file by hand.
 
 ```json
 {
-  "settings": { "language": "de", "showCursor": true, "haptics": true, "clickVolume": 0.5, "scaleSpeed": 1.0,
-                "pushPullSpeed": 0.75, "lookToShow": true, "lookMarginDeg": 10, "sharpness": 1.0 },
+  "settings": { "language": "en", "showCursor": true, "haptics": true, "clickVolume": 0.5, "scaleSpeed": 1.0,
+                "pushPullSpeed": 0.75, "swipeSpeed": 1.0, "lookToShow": true, "lookMarginDeg": 10,
+                "sharpness": 1.0 },
   "windows": [
-    { "name": "Klemmbrett", "type": "images", "folder": "klemmbrett",
+    { "name": "Kneeboard", "type": "images", "folder": "kneeboard",
       "position": [-0.3, -0.35, -0.45], "rotation": [-40, 30, 0], "width": 0.3 },
     { "name": "EDDiscovery", "type": "window", "processName": "EDDiscovery.exe",
       "position": [0.5, 0.05, -0.75], "rotation": [0, -35, 0], "width": 0.6 },
@@ -159,135 +174,155 @@ die Spielsteuerung nicht. Handtracking wird genutzt, wenn die Runtime `XR_EXT_ha
   "bindings": [
     { "action": "recenter", "key": "Ctrl+Alt+Numpad5" },
     { "action": "recenter", "joystick": "VKB", "button": 12 },
-    { "action": "toggleWindow", "window": "Klemmbrett", "key": "Ctrl+Alt+Numpad1" }
+    { "action": "toggleMenu", "joystick": "T.Flight", "buttons": [5, 12] },
+    { "action": "toggleKeyboard", "key": "Ctrl+Alt+K" },
+    { "action": "toggleWindow", "window": "Kneeboard", "key": "Ctrl+Alt+Numpad1" }
   ]
 }
 ```
 
-### Fenster (`windows`, max. 16)
+### General (`settings`)
 
-| Feld | Bedeutung |
+| Field | Meaning |
 |---|---|
-| `name` | Anzeigename, wird von Bindings referenziert |
-| `type` | `window` oder `images` |
-| `processName` | (window) Prozessname, z. B. `EDDiscovery.exe`, `EDMarketConnector.exe`, `msedge.exe` |
-| `titleContains` | (window) Teil des Fenstertitels (Groß-/Kleinschreibung egal) |
-| `hideTitleBar` | (window) nur den Inhaltsbereich zeigen – ohne Titelleiste und Rahmen |
-| `trim` | (window) zusätzlich Ränder abschneiden `[links, oben, rechts, unten]` in Pixeln |
-| `crop` | (window) Ausschnitt `[x, y, breite, höhe]` in Pixeln, z. B. um Browser-Leisten abzuschneiden |
-| `captureCursor` | (window) Mauszeiger mit aufnehmen |
-| `forwardClicks` | (window) im VR mit Trigger/Pinch/Stick bedienbar – klicken, ziehen, scrollen (Standard `true`) |
-| `dragScroll` | (window) Halten und Wischen scrollt wie am Touchscreen (Standard `true`) |
-| `folder` / `images` | (images) Bilderordner bzw. Dateiliste, relativ zur config.json |
-| `position` | Meter relativ zur zentrierten Kopfposition: x = rechts, y = oben, −z = vorne |
-| `rotation` | Grad: `[Neigung, Drehung, Rollen]` |
-| `width` | Breite in Metern (Höhe ergibt sich aus dem Seitenverhältnis) |
-| `opacity` | 0.05 – 1.0 (wenn die Runtime `XR_KHR_composition_layer_color_scale_bias` kann) |
-| `tint` | Filterfarbe `[r, g, b]` (0 – 1), wird auf den Inhalt multipliziert; Weiß = unverändert, z. B. `[1.0, 0.62, 0.25]` = Bernstein |
-| `brightness` | 0.1 – 1.0, dunkelt den Inhalt zusätzlich ab (funktioniert mit jeder Runtime, auch VDXR) |
-| `effect` | Einblendeffekt: `none`, `hologram`, `zoom` oder `tv` (läuft auch beim Ausblenden und beim Hin-/Wegsehen) |
-| `visible` | beim Start sichtbar |
-| `locked` | Fenster kann nicht gegriffen werden (kein Rahmen; ein Pinch klickt sofort) |
-| `lookToShow` | `true` = nur sichtbar und bedienbar, wenn man in seine Richtung schaut; `false` = immer sichtbar (Standard: `settings.lookToShow`) |
+| `language` | `de`, `en` or empty = Windows display language |
+| `showCursor` | show the pointer dot on the windows |
+| `haptics` | controller vibration |
+| `clickVolume` | click sound volume, 0 = off |
+| `scaleSpeed` / `pushPullSpeed` | speed of resizing / changing the distance with the thumbstick |
+| `swipeSpeed` | swipe scrolling speed |
+| `lookToShow` / `lookMarginDeg` | only show windows when looking at them / extra angle around a window |
+| `sharpness` | 1.0 = calm picture, 1.5–2 = sharper, may shimmer |
+| `menuWidth` | width of the VR menu in meters |
 
-Position, Rotation, Größe, Sichtbarkeit und Seite werden beim Verschieben automatisch zurückgeschrieben.
-Das gespiegelte Fenster darf hinter dem Spiel liegen, aber **nicht minimiert** sein.
+### Windows (`windows`, max. 15)
 
-### Tasten (`bindings`)
-
-| `action` | Wirkung |
+| Field | Meaning |
 |---|---|
-| `recenter` | Fenster vor der aktuellen Blickrichtung neu ausrichten |
-| `toggleAll` | alle Fenster ein-/ausblenden |
-| `toggleWindow` | ein Fenster (`window`) ein-/ausblenden |
-| `nextPage` / `prevPage` | Kneeboard-Seite blättern (`window`, leer = alle) |
-| `toggleInteraction` | Greifen sperren/entsperren (gegen versehentliches Verschieben) |
-| `toggleMenu` | VR-Menü ein-/ausblenden |
-| `toggleKeyboard` | PC-Tastatur an das zuletzt angeklickte Programmfenster im VR / zurück an das Spiel |
-| `openSettings` | Einstellungsfenster am PC öffnen |
+| `name` | display name, referenced by bindings |
+| `type` | `window` or `images` |
+| `processName` | (window) process name, e.g. `EDDiscovery.exe`, `EDMarketConnector.exe`, `msedge.exe` |
+| `titleContains` | (window) part of the window title (case-insensitive) |
+| `hideTitleBar` | (window) show only the content area – without title bar and border |
+| `trim` | (window) additionally cut off edges `[left, top, right, bottom]` in pixels |
+| `crop` | (window) region `[x, y, width, height]` in pixels, e.g. to cut off browser bars |
+| `captureCursor` | (window) include the mouse cursor |
+| `forwardClicks` | (window) usable in VR with trigger/pinch/thumbstick – click, drag, scroll (default `true`) |
+| `dragScroll` | (window) hold and swipe scrolls like on a touch screen (default `true`) |
+| `folder` / `images` | (images) picture folder or file list, relative to config.json |
+| `position` | meters relative to the recentered head position: x = right, y = up, −z = forward |
+| `rotation` | degrees: `[pitch, yaw, roll]` |
+| `width` | width in meters (the height follows from the aspect ratio) |
+| `opacity` | 0.05 – 1.0 (if the runtime supports `XR_KHR_composition_layer_color_scale_bias`) |
+| `tint` | filter color `[r, g, b]` (0 – 1), multiplied onto the content; white = unchanged, e.g. `[1.0, 0.62, 0.25]` = amber |
+| `brightness` | 0.1 – 1.0, dims the content further (works with every runtime, including VDXR) |
+| `effect` | show effect: `none`, `hologram`, `zoom` or `tv` (also runs when hiding and when looking towards/away) |
+| `visible` | visible at start |
+| `locked` | the window cannot be grabbed (no frame; a pinch clicks immediately) |
+| `lookToShow` | `true` = only visible and usable when looking towards it; `false` = always visible (default: `settings.lookToShow`) |
 
-- **Tastatur:** `"key": "Ctrl+Alt+Numpad5"` – Modifier `Ctrl`, `Alt`, `Shift`, `Win`; Tasten `A`–`Z`, `0`–`9`,
+Position, rotation, size, visibility and page are written back automatically when you move things.
+The mirrored window may be behind the game but must **not be minimized**.
+
+### Bindings (`bindings`)
+
+| `action` | Effect |
+|---|---|
+| `recenter` | realign the windows in front of the current view direction |
+| `toggleAll` | show/hide all windows |
+| `toggleWindow` | show/hide one window (`window`) |
+| `nextPage` / `prevPage` | turn a kneeboard page (`window`, empty = all) |
+| `toggleInteraction` | lock/unlock grabbing (against moving things by accident) |
+| `toggleMenu` | show/hide the VR menu |
+| `toggleKeyboard` | PC keyboard to the program window clicked last in VR / back to the game |
+| `openSettings` | open the settings window on the PC |
+
+- **Keyboard:** `"key": "Ctrl+Alt+Numpad5"` – modifiers `Ctrl`, `Alt`, `Shift`, `Win`; keys `A`–`Z`, `0`–`9`,
   `F1`–`F24`, `Numpad0`–`Numpad9`, `NumpadAdd`, `Home`, `End`, `PageUp`, `Insert`, `Pause`, …
-  Systemweit registriert, funktioniert also auch, wenn Elite den Fokus hat.
-- **Joystick:** `"joystick": "<Teil des Gerätenamens>", "button": <Nummer>`. Namen und Nummern anzeigen:
+  Registered system-wide, so it also works while Elite has the focus.
+- **Joystick:** `"joystick": "<part of the device name>", "button": <number>`. To show names and numbers:
   ```
   EDOverlayBoard.exe --joysticks
   ```
-  Die Abfrage ist nicht exklusiv: dieselbe Taste kann in Elite auf *„HMD-Ausrichtung zurücksetzen“* liegen.
-  **Kombinationen** auf einem Gerät: `"buttons": [5, 12]` (im Einstellungsfenster: Tasten gleichzeitig halten,
-  dann loslassen). Ist eine Taste allein und zusätzlich in einer Kombination belegt, löst sie allein erst beim
-  Loslassen aus – und nur, wenn die Kombination dabei nicht benutzt wurde (z. B. Taste 5 als „Umschalttaste“).
+  Buttons are not read exclusively: the same button can also be bound in Elite, e.g. to *"Reset HMD orientation"*.
+  **Combinations** on one device: `"buttons": [5, 12]` (in the settings window: hold the buttons together,
+  then release). If a button is bound alone and also in a combination, the single binding fires on
+  release – and only if the combination was not used meanwhile (e.g. button 5 as a "shift" button).
 
-## Fehlersuche
+## Troubleshooting
 
-- App-Log: `EDOverlayBoard.log` im Datenordner (neben der exe bzw. `%LOCALAPPDATA%\EDOverlayBoard`)
-- Layer-Log (im Spiel): `%LOCALAPPDATA%\EDOverlayBoard\layer-<spiel>.log`
-- Keine Fenster im Spiel → steht im Layer-Log überhaupt etwas? Wenn nicht, läuft das Spiel nicht über
-  OpenXR (OpenComposite prüfen) oder der Layer ist nicht registriert (App einmal starten).
-- `cannot open shared texture … different GPU` → App und Spiel laufen auf verschiedenen Grafikkarten
-  (Laptop mit iGPU): beiden in den Windows-Grafikeinstellungen dieselbe GPU zuweisen.
+- App log: `EDOverlayBoard.log` in the data folder (next to the exe, or `%LOCALAPPDATA%\EDOverlayBoard`)
+- Layer log (in the game): `%LOCALAPPDATA%\EDOverlayBoard\layer-<game>.log`
+- No windows in the game → is there anything in the layer log at all? If not, the game does not run via
+  OpenXR (check OpenComposite) or the layer is not registered (start the app once).
+- App and layer do not connect → are both the same version? After an update, restart the app and the game.
+- `cannot open shared texture … different GPU` → app and game run on different graphics cards
+  (laptop with iGPU): assign both the same GPU in the Windows graphics settings.
+- Scrolling/clicking does not reach a program → does the app log show "mouse wheel" or "click at"?
+  Programs running as administrator do not accept the input.
 
-## Selbst bauen
+## Building it yourself
 
-Voraussetzungen: Visual Studio 2022 mit „Desktopentwicklung mit C++“, Windows SDK 10.0.19041+,
-CMake ≥ 3.20 (in Visual Studio enthalten).
+Requirements: Visual Studio 2022 with "Desktop development with C++", Windows SDK 10.0.19041+,
+CMake ≥ 3.20 (included in Visual Studio).
 
 ```
 cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
 
-OpenXR-SDK-Header und nlohmann/json werden beim Konfigurieren automatisch (versioniert) geladen.
-Ergebnis in `build\bin\Release\`: `EDOverlayBoard.exe`, `EDOverlayBoard_Layer.dll`, `EDOverlayBoard_Layer.json`.
+The OpenXR SDK headers and nlohmann/json are downloaded automatically (pinned versions) during configure.
+Output in `build\bin\Release\`: `EDOverlayBoard.exe`, `EDOverlayBoard_Layer.dll`, `EDOverlayBoard_Layer.json`.
 
-Hinweis: Solange ein OpenXR-Spiel läuft, ist die Layer-DLL gesperrt und kann nicht neu gebaut werden.
+Note: while an OpenXR game is running, the layer DLL is locked and cannot be rebuilt.
 
-**Installer bauen** (benötigt zusätzlich [Inno Setup 6](https://jrsoftware.org/isdl.php)):
+**Building the installer** (also needs [Inno Setup 6](https://jrsoftware.org/isdl.php)):
 
 ```
 powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
 ```
 
-Ergebnis: `dist\EDOverlayBoard-Setup-<version>.exe`. Ein Git-Tag `v*` lässt die GitHub Action
-ein Release mit ZIP und Installer erzeugen.
+Output: `dist\EDOverlayBoard-Setup-<version>.exe`. A git tag `v*` makes the GitHub Action create a
+release with the ZIP and the installer.
 
-## Projektstruktur
+## Project structure
 
 ```
-src/app/      Begleit-App
-  main.cpp                 Kommandozeile, Layer-Registrierung beim Start
-  App.*                    Hauptschleife, geteilte Texturen, Aktionen, Speichern
-  WindowCaptureSource.*    Fenster spiegeln (Windows.Graphics.Capture)
-  ImageSource.*            Kneeboard-Bilder (WIC)
-  HotkeyManager.*          globale Tastatur-Hotkeys
-  JoystickManager.*        DirectInput-Joystick-Tasten
-  LayerRegistration.*      OpenXR-Implicit-Layer in HKCU eintragen
-  Config.*, D3D.*          config.json, D3D11, Platzhalter-Panels, Filterfarbe (Shader)
-  Gui.*                    Einstellungsfenster und VR-Menü (Dear ImGui)
-  ClickSound.*             Klickgeräusch
-src/layer/    OpenXR-API-Layer (DLL)
-  Layer.cpp                Loader-Verhandlung, abgefangene OpenXR-Funktionen
-  OverlaySession.*         Swapchains, Quad-Layer, Greifen/Skalieren/Zentrieren
-  Input.*                  eigene Actions (in die Spiel-Bindings eingehängt), Handtracking
-src/common/   Ipc.h (Shared-Memory-Protokoll), VrMath.h, Log
-resources/    EDOverlayBoard_Layer.json (Layer-Manifest), config.example.json, Icon
-installer/    Inno-Setup-Skript und Build-Skript für den Installer
+src/app/      companion app
+  main.cpp                 command line, layer registration at start
+  App.*                    main loop, shared textures, actions, saving
+  WindowCaptureSource.*    window mirroring (Windows.Graphics.Capture), mouse input, swiping
+  ImageSource.*            kneeboard pictures (WIC)
+  HotkeyManager.*          global keyboard hotkeys
+  KeyboardCapture.*        PC keyboard into a VR window (low-level keyboard hook)
+  JoystickManager.*        DirectInput joystick buttons and combinations
+  LayerRegistration.*      registers the OpenXR implicit layer in HKCU
+  Config.*, D3D.*          config.json, D3D11, placeholder panels, filter color (shader)
+  Gui.*                    settings window and VR menu (Dear ImGui)
+  ClickSound.*             click sound
+src/layer/    OpenXR API layer (DLL)
+  Layer.cpp                loader negotiation, intercepted OpenXR functions
+  OverlaySession.*         swapchains, quad layers, grabbing/scaling/recentering
+  Input.*                  own actions (merged into the game's bindings), hand tracking
+src/common/   Ipc.h (shared memory protocol), VrMath.h, Log
+resources/    EDOverlayBoard_Layer.json (layer manifest), config.example.json, icon
+installer/    Inno Setup script and installer build script
 ```
 
 ## Roadmap
 
-- Direct3D 12 / Vulkan im Layer (für andere Spiele)
-- Rechtsklick und Doppelklick in gespiegelten Fenstern
-- PDF-Seiten als Kneeboard
-- Fenster an Kopf/Hand anheften
+- Direct3D 12 / Vulkan in the layer (for other games)
+- Right-click and double-click in mirrored windows
+- PDF pages as kneeboard
+- Pin windows to the head/hand
 
-## Rechtliches
+## Legal
 
-Lizenz: MIT (siehe [LICENSE](LICENSE)). Verwendet [Dear ImGui](https://github.com/ocornut/imgui) (MIT),
-[nlohmann/json](https://github.com/nlohmann/json) (MIT) und die OpenXR-SDK-Header (Apache 2.0).
-Elite Dangerous ist eine Marke von Frontier Developments plc. Dieses Projekt ist ein inoffizielles
-Fan-Werkzeug und steht in keiner Verbindung zu Frontier Developments, Valve, Khronos oder Virtual Desktop.
-Inspiriert von OpenKneeboard, aber eigenständig entwickelt.
+License: MIT (see [LICENSE](LICENSE)). Uses [Dear ImGui](https://github.com/ocornut/imgui) (MIT),
+[nlohmann/json](https://github.com/nlohmann/json) (MIT) and the OpenXR SDK headers (Apache 2.0).
+Elite Dangerous is a trademark of Frontier Developments plc. This project is an unofficial fan tool and
+is not affiliated with Frontier Developments, Valve, Khronos or Virtual Desktop.
+Inspired by OpenKneeboard, but developed independently.
 
-Entstanden mit Hilfe von KI: Der Quellcode, die Texte und der Installer wurden zusammen mit
-Claude (Anthropic) geschrieben; Idee, Anforderungen, Tests und Veröffentlichung: Andreas Rettig.
+Made with the help of AI: the source code, the texts and the installer were written together with
+Claude (Anthropic); idea, requirements, testing and publishing: Andreas Rettig.
