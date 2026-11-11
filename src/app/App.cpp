@@ -501,6 +501,10 @@ void App::StartKeyboard() {
     const Slot& s = slots_[static_cast<size_t>(i)];
     return !s.internal && s.mouse && s.cfg->visible && !allHidden_ && s.source && s.source->KeyboardTarget();
   };
+  if (!vrStatus_.connected) {  // at the desktop you can type into the program directly
+    Log("Keyboard: only available while the game runs in VR");
+    return;
+  }
   int slot = usable(lastMouseSlot_) ? lastMouseSlot_ : -1;
   for (int i = 0; slot < 0 && i < static_cast<int>(slots_.size()); ++i)
     if (usable(i)) slot = i;
@@ -534,6 +538,12 @@ void App::StopKeyboard(const char* reason) {
 
 void App::CheckKeyboard() {
   if (keyboardSlot_ < 0) return;
+  // Only while the game runs in VR: when it is closed (or the headset sleeps) its layer stops
+  // sending heartbeats, and the keyboard goes back to normal by itself.
+  if (!vrStatus_.connected) {
+    StopKeyboard("game / VR no longer running");
+    return;
+  }
   const Slot& s = slots_[static_cast<size_t>(keyboardSlot_)];
   HWND target = s.cfg->visible && !allHidden_ && s.mouse && s.source ? s.source->KeyboardTarget() : nullptr;
   if (!target) {
