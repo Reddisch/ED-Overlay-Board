@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 - Swipe to scroll in program windows (trigger or pinch, like a touch screen, with fling);
   hold still for about 0.5 s first for a normal mouse drag. Per window `dragScroll`, speed `swipeSpeed`
