@@ -53,7 +53,9 @@ struct BindingConfig {
   std::string window;    // target window name (toggleWindow / nextPage / prevPage)
   std::string key;       // e.g. "Ctrl+Alt+Numpad5"
   std::string joystick;  // substring of the DirectInput device name ("" = any device)
-  int button = 0;        // 1-based joystick button number (as shown in Windows "Game Controllers")
+  std::vector<int> buttons;  // 1-based joystick button numbers (as in Windows "Game Controllers"),
+                             // several = combination pressed together on that device
+  std::string ButtonsText() const;  // e.g. "5 + 12"
 };
 
 struct AppConfig {

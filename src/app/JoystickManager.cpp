@@ -20,12 +20,31 @@ bool JoystickManager::Init(HWND hwnd) {
   return true;
 }
 
-void JoystickManager::AddBinding(int id, const std::string& deviceMatch, int button) {
-  if (button < 1 || button > 128) {
-    Log("Joystick binding: button {} out of range (1-128)", button);
-    return;
+void JoystickManager::AddBinding(int id, const std::string& deviceMatch, const std::vector<int>& buttons) {
+  std::vector<int> bs;
+  for (int b : buttons) {
+    if (b < 1 || b > 128) {
+      Log("Joystick binding: button {} out of range (1-128)", b);
+      return;
+    }
+    bs.push_back(b);
   }
-  bindings_.push_back({id, Utf8ToWide(deviceMatch), button});
+  std::sort(bs.begin(), bs.end());
+  bs.erase(std::unique(bs.begin(), bs.end()), bs.end());
+  if (bs.empty()) return;
+  bindings_.push_back({id, Utf8ToWide(deviceMatch), std::move(bs)});
+  UpdateDeferred();
+}
+
+// A binding fires on release when its buttons are a real part of another binding's combination.
+void JoystickManager::UpdateDeferred() {
+  for (auto& b : bindings_) {
+    b.deferred = false;
+    for (const auto& o : bindings_)
+      if (&o != &b && o.buttons.size() > b.buttons.size() &&
+          std::includes(o.buttons.begin(), o.buttons.end(), b.buttons.begin(), b.buttons.end()))
+        b.deferred = true;
+  }
 }
 
 void JoystickManager::Enumerate() {
@@ -84,18 +103,84 @@ std::vector<int> JoystickManager::Poll() {
   for (auto it = devices_.begin(); it != devices_.end();) {
     if (!Read(*it)) {
       Log("Joystick: lost \"{}\"", WideToUtf8(it->name));
+      for (auto& b : bindings_)
+        if (b.armed && IsEqualGUID(b.armedDevice, it->guid)) b.armed = false;
       it = devices_.erase(it);
       continue;
     }
-    for (int i = 0; i < 128; ++i)
-      if ((it->cur[i] & 0x80) && !(it->prev[i] & 0x80)) lastPress_ = {WideToUtf8(it->name), i + 1};
-    for (const auto& b : bindings_) {
-      int i = b.button - 1;
-      if ((it->cur[i] & 0x80) && !(it->prev[i] & 0x80) && ContainsI(it->name, b.match)) fired.push_back(b.id);
+    const Device& d = *it;
+    auto held = [&](int button) { return (d.cur[button - 1] & 0x80) != 0; };
+    auto pressed = [&](int button) { return held(button) && !(d.prev[button - 1] & 0x80); };
+    if (learning_) Learn(d);
+
+    bool any = false;  // a binding fired on this device in this poll
+    for (auto& b : bindings_) {
+      if (!ContainsI(d.name, b.match)) continue;
+      const bool all = std::all_of(b.buttons.begin(), b.buttons.end(), held);
+      const bool now = all && std::any_of(b.buttons.begin(), b.buttons.end(), pressed);
+      if (!b.deferred) {
+        if (now) {
+          fired.push_back(b.id);
+          any = true;
+        }
+      } else if (now && !b.armed) {
+        b.armed = true;
+        b.spoiled = false;
+        b.armedDevice = d.guid;
+      } else if (b.armed && IsEqualGUID(b.armedDevice, d.guid) && !all) {
+        b.armed = false;
+        if (!b.spoiled) {
+          fired.push_back(b.id);
+          any = true;
+        }
+      }
     }
+    if (any)  // e.g. 5 + 12 fired: releasing 5 must not fire "5 alone" any more
+      for (auto& b : bindings_)
+        if (b.armed && IsEqualGUID(b.armedDevice, d.guid)) b.spoiled = true;
     ++it;
   }
   return fired;
+}
+
+void JoystickManager::StartLearning() {
+  learning_ = true;
+  learnDone_ = learnHasDevice_ = false;
+  learned_ = {};
+}
+
+void JoystickManager::Learn(const Device& d) {
+  if (learnDone_) return;
+  if (!learnHasDevice_) {
+    for (int i = 0; i < 128 && !learnHasDevice_; ++i)
+      if ((d.cur[i] & 0x80) && !(d.prev[i] & 0x80)) {
+        learnHasDevice_ = true;
+        learnDevice_ = d.guid;
+        learned_.device = WideToUtf8(d.name);
+      }
+    if (!learnHasDevice_) return;
+  }
+  if (!IsEqualGUID(learnDevice_, d.guid)) return;
+  bool anyHeld = false;
+  for (int i = 0; i < 128; ++i) {
+    if (!(d.cur[i] & 0x80)) continue;
+    if (!(d.prev[i] & 0x80) || std::find(learned_.buttons.begin(), learned_.buttons.end(), i + 1) != learned_.buttons.end()) {
+      if (std::find(learned_.buttons.begin(), learned_.buttons.end(), i + 1) == learned_.buttons.end())
+        learned_.buttons.push_back(i + 1);
+      anyHeld = true;
+    }
+  }
+  if (!anyHeld && !learned_.buttons.empty()) {  // all released: done
+    std::sort(learned_.buttons.begin(), learned_.buttons.end());
+    learnDone_ = true;
+  }
+}
+
+bool JoystickManager::TakeLearned(Press& out) {
+  if (!learning_ || !learnDone_) return false;
+  out = learned_;
+  learning_ = false;
+  return true;
 }
 
 std::vector<std::string> JoystickManager::DeviceNames() const {

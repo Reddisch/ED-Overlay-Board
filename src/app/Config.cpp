@@ -122,7 +122,12 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       c.window = b.value("window", "");
       c.key = b.value("key", "");
       c.joystick = b.value("joystick", "");
-      c.button = b.value("button", 0);
+      if (b.contains("buttons") && b["buttons"].is_array()) {
+        for (const auto& n : b["buttons"])
+          if (n.is_number_integer() && n.get<int>() > 0) c.buttons.push_back(n.get<int>());
+      } else if (int n = b.value("button", 0); n > 0) {
+        c.buttons.push_back(n);
+      }
       bindings.push_back(std::move(c));
     }
   } catch (const std::exception& e) {
@@ -132,6 +137,12 @@ bool AppConfig::Load(const std::filesystem::path& path) {
 
   Log("Config: loaded {} window(s), {} binding(s) from {}", windows.size(), bindings.size(), path.string());
   return true;
+}
+
+std::string BindingConfig::ButtonsText() const {
+  std::string s;
+  for (int b : buttons) s += (s.empty() ? "" : " + ") + std::to_string(b);
+  return s;
 }
 
 bool AppConfig::Save() {
@@ -189,9 +200,12 @@ bool AppConfig::Save() {
     j["action"] = b.action;
     if (!b.window.empty()) j["window"] = b.window;
     if (!b.key.empty()) j["key"] = b.key;
-    if (b.button > 0) {
+    if (!b.buttons.empty()) {
       j["joystick"] = b.joystick;
-      j["button"] = b.button;
+      if (b.buttons.size() == 1)
+        j["button"] = b.buttons[0];
+      else
+        j["buttons"] = b.buttons;
     }
     bs.push_back(std::move(j));
   }

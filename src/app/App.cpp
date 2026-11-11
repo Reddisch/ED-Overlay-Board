@@ -21,7 +21,7 @@ constexpr int kMaxUserWindows = ipc::kMaxWindows - 1;  // one slot is reserved f
 
 std::string BindingsKey(const std::vector<BindingConfig>& bs) {
   std::string k;
-  for (const auto& b : bs) k += b.action + "|" + b.window + "|" + b.key + "|" + b.joystick + "|" + std::to_string(b.button) + ";";
+  for (const auto& b : bs) k += b.action + "|" + b.window + "|" + b.key + "|" + b.joystick + "|" + b.ButtonsText() + ";";
   return k;
 }
 }  // namespace
@@ -175,8 +175,8 @@ void App::RegisterBindings() {
     if (KeyboardCapture::Hotkey hk{0, 0, id + 1}; !b.key.empty() && HotkeyManager::Parse(b.key, hk.modifiers, hk.vk))
       captureKeys.push_back(hk);
     if (!b.key.empty() && !keyLearning_ && hotkeys_.Register(id + 1, b.key)) ++keys;
-    if (b.button > 0) {
-      joysticks_.AddBinding(id, b.joystick, b.button);
+    if (!b.buttons.empty()) {
+      joysticks_.AddBinding(id, b.joystick, b.buttons);
       ++buttons;
     }
   }
@@ -610,14 +610,14 @@ void App::StartJoystickLearning() {
   StopLearning();
   joyLearning_ = true;
   learnedReady_ = learnedCancelled_ = false;
-  JoystickManager::Press ignore;
-  joysticks_.TakeLastPress(ignore);
+  joysticks_.StartLearning();
   for (int vk = 1; vk < 256; ++vk) keysDownAtStart_[vk] = (GetAsyncKeyState(vk) & 0x8000) != 0;
 }
 
 void App::StopLearning() {
   bool wasKey = keyLearning_;
   keyLearning_ = joyLearning_ = false;
+  joysticks_.StopLearning();
   if (wasKey) RegisterBindings();
 }
 
@@ -667,7 +667,7 @@ void App::UpdateLearning() {
     return;
   }
 
-  if (joyLearning_ && joysticks_.TakeLastPress(learnedJoy_)) finish(false);
+  if (joyLearning_ && joysticks_.TakeLearned(learnedJoy_)) finish(false);
 }
 
 // ---------------------------------------------------------------------------

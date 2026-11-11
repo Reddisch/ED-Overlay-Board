@@ -12,24 +12,27 @@
 
 // Reads joystick/HOTAS buttons with DirectInput in background, non-exclusive mode,
 // so the game still receives the same buttons (e.g. bind it to ED's own "reset HMD orientation").
+//
+// A binding is one button or a combination of buttons on the same device (e.g. 5 + 12). It fires
+// when the last of its buttons goes down while the others are held. A binding whose buttons are
+// part of a bigger combination (e.g. 5 alone and 5 + 12) fires on release instead, and only if
+// the bigger combination was not used meanwhile - so a "shift" button can have its own action.
 class JoystickManager {
  public:
   bool Init(HWND hwnd);
-  void AddBinding(int id, const std::string& deviceMatch, int button);
+  void AddBinding(int id, const std::string& deviceMatch, const std::vector<int>& buttons);
   void ClearBindings() { bindings_.clear(); }
-  std::vector<int> Poll();  // ids of bindings whose button was just pressed
+  std::vector<int> Poll();  // ids of bindings that fired
 
-  // Last button press on any device since the previous call (for "learn button" in the settings).
+  // "Learn button" in the settings: collects every button held together on one device and
+  // finishes when they are all released again.
   struct Press {
     std::string device;
-    int button = 0;  // 1-based
+    std::vector<int> buttons;  // 1-based, sorted
   };
-  bool TakeLastPress(Press& out) {
-    if (lastPress_.button == 0) return false;
-    out = lastPress_;
-    lastPress_ = {};
-    return true;
-  }
+  void StartLearning();
+  void StopLearning() { learning_ = false; }
+  bool TakeLearned(Press& out);
   std::vector<std::string> DeviceNames() const;
 
   // Prints all devices and every button press until `quit` is set (helper for configuration).
@@ -47,16 +50,25 @@ class JoystickManager {
   struct Binding {
     int id;
     std::wstring match;
-    int button;  // 1-based
+    std::vector<int> buttons;  // 1-based
+    bool deferred = false;     // part of a bigger combination: fires on release
+    bool armed = false;        // deferred: all buttons held, waiting for the release
+    bool spoiled = false;      // deferred: another binding fired meanwhile
+    GUID armedDevice{};
   };
 
   void Enumerate();
   bool Read(Device& d);
+  void UpdateDeferred();
+  void Learn(const Device& d);
 
   HWND hwnd_ = nullptr;
   winrt::com_ptr<IDirectInput8W> di_;
   std::vector<Device> devices_;
   std::vector<Binding> bindings_;
-  Press lastPress_;
   std::chrono::steady_clock::time_point nextEnum_{};
+
+  bool learning_ = false, learnDone_ = false, learnHasDevice_ = false;
+  GUID learnDevice_{};
+  Press learned_;
 };

@@ -214,6 +214,9 @@ Das gespiegelte Fenster darf hinter dem Spiel liegen, aber **nicht minimiert** s
   EDOverlayBoard.exe --joysticks
   ```
   Die Abfrage ist nicht exklusiv: dieselbe Taste kann in Elite auf *„HMD-Ausrichtung zurücksetzen“* liegen.
+  **Kombinationen** auf einem Gerät: `"buttons": [5, 12]` (im Einstellungsfenster: Tasten gleichzeitig halten,
+  dann loslassen). Ist eine Taste allein und zusätzlich in einer Kombination belegt, löst sie allein erst beim
+  Loslassen aus – und nur, wenn die Kombination dabei nicht benutzt wurde (z. B. Taste 5 als „Umschalttaste“).
 
 ## Fehlersuche
 

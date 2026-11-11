@@ -253,7 +253,7 @@ void SettingsWindow::Draw() {
       auto& b = binds[static_cast<size_t>(learningBinding_)];
       if (learningJoystick_) {
         b.joystick = joy.device;
-        b.button = joy.button;
+        b.buttons = joy.buttons;
       } else {
         b.key = key;
       }
@@ -583,21 +583,30 @@ void SettingsWindow::DrawBindingsTab() {
       ImGui::TableNextColumn();
       {
         bool learning = learningBinding_ == i && learningJoystick_;
-        std::string label = learning ? T("Joystick-Taste drücken... (Esc)", "Press a joystick button... (Esc)")
-                                     : (b.button > 0 ? (b.joystick.empty() ? T("beliebig", "any") : b.joystick) +
-                                                           T("  Taste ", "  button ") + std::to_string(b.button)
-                                                     : T("(keine)", "(none)"));
+        std::string label =
+            learning ? T("Taste(n) drücken und loslassen... (Esc)", "Press and release button(s)... (Esc)")
+                     : (!b.buttons.empty() ? (b.joystick.empty() ? T("beliebig", "any") : b.joystick) +
+                                                 (b.buttons.size() > 1 ? T("  Tasten ", "  buttons ")
+                                                                       : T("  Taste ", "  button ")) +
+                                                 b.ButtonsText()
+                                           : T("(keine)", "(none)"));
         if (ImGui::Button((label + "##joy").c_str(), {ImGui::GetContentRegionAvail().x - clearW - 6, 0}) &&
             !app_.Learning()) {
           learningBinding_ = i;
           learningJoystick_ = true;
           app_.StartJoystickLearning();
         }
-        ImGui::SetItemTooltip("%s", T("Klicken und dann die Taste am Joystick/HOTAS drücken",
-                                      "Click, then press the button on the joystick/HOTAS"));
+        ImGui::SetItemTooltip("%s", T("Klicken, dann die Taste am Joystick/HOTAS drücken und loslassen.\n"
+                                      "Kombination: mehrere Tasten gleichzeitig halten (z. B. 5 + 12), dann loslassen.\n"
+                                      "Ist eine Taste allein UND in einer Kombination belegt, löst sie allein\n"
+                                      "erst beim Loslassen aus - und nur, wenn die Kombination nicht benutzt wurde.",
+                                      "Click, then press and release the button on the joystick/HOTAS.\n"
+                                      "Combination: hold several buttons together (e.g. 5 + 12), then release.\n"
+                                      "If a button is bound alone AND in a combination, the single binding\n"
+                                      "fires on release - and only if the combination was not used."));
         ImGui::SameLine(0, 6);
         if (ImGui::Button("x##joyclr", {clearW, 0})) {
-          b.button = 0;
+          b.buttons.clear();
           b.joystick.clear();
           app_.ConfigChanged(false);
         }
@@ -618,7 +627,7 @@ void SettingsWindow::DrawBindingsTab() {
     app_.ConfigChanged(false);
   }
   if (ImGui::Button(T("Neue Belegung", "New binding"))) {
-    cfg.bindings.push_back({"recenter", "", "", "", 0});
+    cfg.bindings.push_back({"recenter", "", "", "", {}});
     app_.ConfigChanged(false);
   }
   if (app_.Learning()) {

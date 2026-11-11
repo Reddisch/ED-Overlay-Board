@@ -7,6 +7,9 @@
 - Horizontal scrolling with the thumbstick
 - PC keyboard into a VR window (`toggleKeyboard`, VR menu button): keys go to the program window
   clicked last (blue border), Elite keeps the focus; hotkeys and injected keys still work
+- Joystick bindings can be button combinations on one device (`"buttons": [5, 12]`, learned by
+  holding the buttons together); a button that is also part of a combination fires alone on release
+- Scrolling in SDL/Kivy programs (EDCoPilot) and Tk programs
 - IPC version 7 (app and layer must match)
 
 ## 0.3.0
