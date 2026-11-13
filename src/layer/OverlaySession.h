@@ -1,5 +1,6 @@
 #pragma once
 
+#include "GazeIpc.h"
 #include "Input.h"
 #include "Ipc.h"
 #include "Log.h"
@@ -51,10 +52,12 @@ class OverlaySession {
     bool active = false, visible = false, locked = false, opaque = true;
     bool lookToShow = false;
     bool gazeShown = true;  // currently looked at (or lookToShow disabled)
-    bool interactive = false;  // the VR menu (visible even while all windows are hidden)
+    bool interactive = false;  // the VR menu (visible even while all windows are hidden, follows the head)
     bool mouse = false;        // trigger/pinch act as a mouse (VR menu, clickable programs)
     float headerFraction = 0.0f;
     bool summonPending = false;
+    bool followValid = false;  // VR menu: followDir is set (reset while hidden -> snaps in front)
+    Vec3 followDir;            // smoothed view direction the VR menu sits on
     bool pointerActive = false;
     float pointerX = 0, pointerY = 0;
     uint32_t pendingDown = 0, pendingUp = 0;
@@ -123,7 +126,9 @@ class OverlaySession {
   void ResetWindows();
   void UpdateHead(XrTime time);
   void UpdateGaze();
+  void PublishGaze();  // for other programs: which window is looked at (GazeIpc.h)
   void SummonWindows();
+  void UpdateHeadFollow(float dt);  // the VR menu stays in the middle of the view
   bool Shown(int i) const {  // drawn and interactive this frame
     const Win& w = windows_[i];
     return w.active && w.visible && w.hasImage && (!allHidden_ || w.interactive) &&
@@ -172,6 +177,7 @@ class OverlaySession {
   XrSpace viewSpace_ = XR_NULL_HANDLE;
 
   ipc::SharedState shm_;
+  gaze::Publisher gaze_;
   uint64_t nextOpenTry_ = 0;
   bool connected_ = false;
   bool wasConnected_ = false;

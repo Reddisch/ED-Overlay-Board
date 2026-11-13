@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+- VR menu follows the head: always in the middle of the view at about 55 cm, upright, slightly
+  smoothed (1° dead zone, so the text stays calm). It can no longer be grabbed, moved or resized in VR
+  (no grab border, header bar is only a title); its size comes from `menuWidth`. Layer + app change
+- Gaze information for other programs: the layer publishes per window whether the view direction
+  hits it, in the read-only shared memory `Local\EDOverlayBoard.Gaze.v1` (`src/common/GazeIpc.h`).
+  Independent of the app/layer protocol (IPC version stays 7, only the layer changes)
+
 ## 0.4.0
 
 - Swipe to scroll in program windows (trigger or pinch, like a touch screen, with fling);

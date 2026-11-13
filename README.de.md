@@ -28,6 +28,9 @@ Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculu
   auch **Tastenkombinationen** wie 5 + 12)
 - Fenster einzeln/alle ein-/ausblenden, Seiten blättern, Interaktion sperren
 - **Blickabhängig:** Fenster erscheinen nur, wenn man in ihre Richtung schaut, und sind nur dann bedienbar
+- **Blickinformation für andere Programme:** welches Fenster gerade angesehen wird, im schreibgeschützten
+  Shared Memory `Local\EDOverlayBoard.Gaze.v1` (`src/common/GazeIpc.h`) – z. B. für die Joystick-Steuerung von
+  [ED Road to Riches](https://github.com/Reddisch/ED-Road-to-Riches)
 - **Einstellungsfenster** (Tray-Icon): Fenster anlegen/bearbeiten, Programm aus Liste wählen, Tastatur- und
   Joystick-Tasten per Tastendruck „lernen“ – alles wirkt sofort
 - **VR-Menü** (z. B. Strg+Alt+M): Fenster ein/aus, Zentrieren, Sperren, Tastatur, Schärfe, Helligkeit,
@@ -105,9 +108,10 @@ Den Layer kurzfristig abschalten: Umgebungsvariable `DISABLE_XR_APILAYER_EDOB_OV
   *Tasten* (Aktion wählen, „Tastatur“/„Joystick“ anklicken und die Taste(n) drücken, Esc = abbrechen),
   *Allgemein* (u. a. Klickgeräusch, Wisch-Tempo) und *Status*. Schließen des Fensters beendet die App
   nicht – „Beenden“ im Tray-Menü.
-- **Im VR:** Strg+Alt+M (oder eine eigene Belegung „VR-Menü ein/aus“) holt das Menü vor dich.
-  Controller: Trigger = klicken, Stick = scrollen, Grip = verschieben.
-  Handtracking: Pinch = klicken, Pinch auf die orange Kopfleiste oder den Rand = verschieben.
+- **Im VR:** Strg+Alt+M (oder eine eigene Belegung „VR-Menü ein/aus“) zeigt das Menü in der Mitte
+  deines Blickfelds, etwa 55 cm entfernt. Es ist nicht verschiebbar: Es geht mit der Kopfbewegung mit
+  (leicht geglättet, immer aufrecht). Die Größe stellt `menuWidth` ein.
+  Controller: Trigger = klicken, Stick = scrollen. Handtracking: Pinch = klicken.
   Pro Fenster lässt sich dort umschalten: sichtbar, verschiebbar und (bei Programmfenstern) klickbar.
   Unter „Fenster-Darstellung“ (Fenster mit `<` `>` wählen): Filterfarbe, Helligkeit und Einblendeffekt.
   Der Knopf „PC-Tastatur ins Fenster“ schaltet den Tastatur-Modus ein und aus.

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(EDOverlayBoard VERSION 0.4.0 LANGUAGES CXX RC)
+project(EDOverlayBoard VERSION 0.5.0 LANGUAGES CXX RC)
 
 if(NOT WIN32)
   message(FATAL_ERROR "EDOverlayBoard is Windows-only (D3D11, Windows.Graphics.Capture, DirectInput).")

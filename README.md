@@ -28,6 +28,9 @@ tracking; recenter with a keyboard hotkey or a HOTAS/joystick button. Works with
   also **button combinations** such as 5 + 12)
 - Show/hide single windows or all of them, turn pages, lock interaction
 - **Gaze dependent:** windows only appear (and can only be used) when you look towards them
+- **Gaze information for other programs:** which window you are looking at, in the read-only shared memory
+  `Local\EDOverlayBoard.Gaze.v1` (`src/common/GazeIpc.h`) – e.g. for the joystick control of
+  [ED Road to Riches](https://github.com/Reddisch/ED-Road-to-Riches)
 - **Settings window** (tray icon): add/edit windows, pick a program from a list, "learn" keyboard and
   joystick buttons by pressing them – everything applies immediately
 - **VR menu** (e.g. Ctrl+Alt+M): windows on/off, recenter, lock, keyboard, sharpness, brightness,
@@ -104,9 +107,10 @@ To switch the layer off temporarily: environment variable `DISABLE_XR_APILAYER_E
   *Bindings* (choose an action, click "Keyboard"/"Joystick" and press the key or button(s), Esc = cancel),
   *General* (click sound, swipe speed, …) and *Status*. Closing the window does not quit the app –
   use "Quit" in the tray menu.
-- **In VR:** Ctrl+Alt+M (or your own binding for "VR menu on/off") brings the menu in front of you.
-  Controllers: trigger = click, thumbstick = scroll, grip = move.
-  Hand tracking: pinch = click, pinch on the orange header bar or the border = move.
+- **In VR:** Ctrl+Alt+M (or your own binding for "VR menu on/off") shows the menu in the middle of
+  your view, about 55 cm away. It cannot be moved: it goes along with your head (slightly smoothed,
+  always upright). Its size is `menuWidth`.
+  Controllers: trigger = click, thumbstick = scroll. Hand tracking: pinch = click.
   For each window you can switch: visible, movable and (for program windows) clickable.
   Under "Window look" (choose the window with `<` `>`): filter color, brightness and show effect.
   The button "PC keyboard into window" switches keyboard mode on and off.

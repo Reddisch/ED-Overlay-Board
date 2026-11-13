@@ -352,7 +352,7 @@ void App::SyncShared() {
     }
     s.mouse = mouse;
     w.summonOnShow = s.internal;
-    w.headerFraction = s.internal ? vrMenu_->HeaderFraction() : 0.0f;
+    w.headerFraction = 0.0f;  // the VR menu follows the head: no grab zone
     w.opacity = std::clamp(c.opacity, 0.05f, 1.0f);
     w.showEffect = s.internal ? 0u : static_cast<uint32_t>(std::clamp(c.showEffect, 0, int(ipc::kEffectCount) - 1));
     w.texWidth = s.width;

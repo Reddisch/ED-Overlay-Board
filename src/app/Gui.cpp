@@ -844,12 +844,11 @@ void VrMenu::Draw() {
   ImGui::SetNextWindowSize(size);
   ImGui::Begin("##vrmenu", nullptr, kFullscreen | ImGuiWindowFlags_NoScrollWithMouse);
 
-  // header = grab zone for hand tracking
+  // header bar (the menu itself follows the head and cannot be grabbed)
   const float header = kHeaderHeight;
   auto* dl = ImGui::GetWindowDrawList();
   dl->AddRectFilled({0, 0}, {size.x, header}, IM_COL32(255, 140, 25, 255));
-  const char* title = T("ED Overlay Board   -   hier oder am Rand greifen",
-                        "ED Overlay Board   -   grab here or at the border");
+  const char* title = "ED Overlay Board";
   ImVec2 ts = ImGui::CalcTextSize(title);
   dl->AddText({(size.x - ts.x) * 0.5f, (header - ts.y) * 0.5f}, IM_COL32(20, 20, 24, 255), title);
   ImGui::SetCursorPosY(header + ImGui::GetStyle().ItemSpacing.y);

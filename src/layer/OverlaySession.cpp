@@ -323,12 +323,50 @@ void OverlaySession::SummonWindows() {
   for (auto& w : windows_) {
     if (!w.summonPending) continue;
     w.summonPending = false;
+    if (w.interactive) continue;  // the VR menu is placed by UpdateHeadFollow
     // half a meter in front of the face, slightly below eye level, facing the user
     Pose yaw = head_.YawOnly();
     Vec3 pos = yaw.Apply({0.0f, -0.12f, -0.5f});
     Pose world = Pose::LookRotation(pos, (pos - head_.t).Normalized());
     w.rel = center_.Inverse() * world;
     w.placementDirty = true;
+  }
+}
+
+// The VR menu cannot be moved: it stays in the middle of the view at reading distance and goes
+// along with the head. Only the direction is smoothed (short lag = calm text, no jitter), the
+// head position is followed directly. It always stays upright (no roll) and faces the eyes.
+void OverlaySession::UpdateHeadFollow(float dt) {
+  constexpr float kDistance = 0.55f;       // meters in front of the eyes
+  constexpr float kFollowSeconds = 0.12f;  // smoothing time constant
+  constexpr float kDeadzoneDeg = 1.0f;     // smaller head movements do not move it (sharp text)
+  constexpr float kMaxPitch = 0.94f;       // |y| of the direction: ~70 deg up/down, never flips over
+  for (auto& w : windows_) {
+    if (!w.interactive) continue;
+    if (!w.active || !w.visible) {
+      w.followValid = false;  // shown again: appears right in front, no sweep from the old place
+      continue;
+    }
+    if (!headValid_ || !centered_) continue;
+    const Vec3 forward = head_.Forward().Normalized();
+    if (!w.followValid) {
+      w.followDir = forward;
+      w.followValid = true;
+    } else {
+      const float angle = std::acos(std::clamp(w.followDir.Dot(forward), -1.0f, 1.0f)) * kRadToDeg;
+      if (angle > kDeadzoneDeg) {
+        const float a = 1.0f - std::exp(-dt / kFollowSeconds);
+        w.followDir = (w.followDir + (forward - w.followDir) * a).Normalized();
+      }
+    }
+    Vec3 dir = w.followDir;
+    if (std::fabs(dir.y) > kMaxPitch) {
+      const float horizontal = std::sqrt(dir.x * dir.x + dir.z * dir.z);
+      const float scale = horizontal > 1e-4f ? std::sqrt(1.0f - kMaxPitch * kMaxPitch) / horizontal : 0.0f;
+      dir = scale > 0.0f ? Vec3{dir.x * scale, std::copysign(kMaxPitch, dir.y), dir.z * scale} : head_.YawOnly().Forward();
+    }
+    const Vec3 pos = head_.t + dir * kDistance;
+    w.rel = center_.Inverse() * Pose::LookRotation(pos, dir);
   }
 }
 
@@ -399,6 +437,27 @@ void OverlaySession::UpdateGaze() {
   }
 }
 
+void OverlaySession::PublishGaze() {
+  static_assert(gaze::kMaxWindows == ipc::kMaxWindows, "one gaze entry per window slot");
+  gaze_.Write([&](gaze::State& s) {
+    s.count = gaze::kMaxWindows;
+    for (int i = 0; i < ipc::kMaxWindows; ++i) {
+      const Win& w = windows_[i];
+      gaze::Entry& e = s.windows[i];
+      std::memset(&e, 0, sizeof(e));
+      if (!w.active) continue;
+      strncpy_s(e.name, w.name.c_str(), _TRUNCATE);
+      e.active = 1;
+      const bool shown = connected_ && centered_ && Shown(i);
+      e.shown = shown ? 1 : 0;
+      // stricter than lookToShow: the view direction itself must hit the window (or its frame)
+      float dist = 0;
+      Vec3 local;
+      e.looked = shown && headValid_ && Intersect(w, head_, GrabMargin(w), dist, local) ? 1 : 0;
+    }
+  });
+}
+
 bool OverlaySession::PointOnPlane(const Win& w, const Pose& ray, Vec3& local) const {
   Pose inv = World(w).Inverse();
   Vec3 o = inv.Apply(ray.t);
@@ -466,7 +525,7 @@ void OverlaySession::UpdateInteraction(float dt) {
         if (!Shown(i)) continue;  // only windows you can see can be pointed at / grabbed
         float d;
         Vec3 local;
-        if (!Intersect(w, p.pose, w.locked ? 0.0f : GrabMargin(w), d, local)) continue;
+        if (!Intersect(w, p.pose, w.locked || w.interactive ? 0.0f : GrabMargin(w), d, local)) continue;
         const bool inside = std::fabs(local.x) <= w.width * 0.5f && std::fabs(local.y) <= w.Height() * 0.5f;
         // a hit on a window itself beats a hit on the (invisible) margin of another one
         if (hit.window < 0 || (inside && !hit.inside) || (inside == hit.inside && d < hit.distance))
@@ -475,7 +534,7 @@ void OverlaySession::UpdateInteraction(float dt) {
       if (hit.window >= 0) {
         const Win& w = windows_[hit.window];
         const float v = 0.5f - hit.local.y / std::max(w.Height(), 1e-3f);
-        hit.zone = !w.locked && (!hit.inside || (w.mouse && v < w.headerFraction));
+        hit.zone = !w.locked && !w.interactive && (!hit.inside || (w.mouse && v < w.headerFraction));
       }
     }
     hover_[h] = hit;
@@ -485,7 +544,7 @@ void OverlaySession::UpdateInteraction(float dt) {
       zoneWindow_[h] = hit.window;
       zoneTime_[h] = time_;
     }
-    const bool zone = hit.window >= 0 && !windows_[hit.window].locked &&
+    const bool zone = hit.window >= 0 && !windows_[hit.window].locked && !windows_[hit.window].interactive &&
                       (hit.zone || (zoneWindow_[h] == hit.window && time_ - zoneTime_[h] < kZoneGraceSeconds));
 
     if (grabs_[h].window >= 0) {
@@ -523,7 +582,7 @@ void OverlaySession::UpdateInteraction(float dt) {
         if (ay > kStickDeadzone && ay >= ax * 0.5f) w.pendingWheel += p.stickY * dt * 6.0f;
         if (ax > kStickDeadzone && ax >= ay * 0.5f) w.pendingWheelX += p.stickX * dt * 6.0f;
       }
-      if (grabPressed && !p.isHand && !w.locked) StartGrab(h, hit);
+      if (grabPressed && !p.isHand && !w.locked && !w.interactive) StartGrab(h, hit);  // the menu: never
       continue;
     }
 
@@ -896,7 +955,7 @@ void OverlaySession::BuildLayers(const XrFrameEndInfo* info) {
     bool grabbed = grabs_[0].window == i || grabs_[1].window == i;
     bool hovered = hover_[0].window == i || hover_[1].window == i;
     bool onZone = (hover_[0].window == i && hover_[0].zone) || (hover_[1].window == i && hover_[1].zone);
-    if ((grabbed || hovered) && !w.locked && a >= 1.0f) {  // locked windows: no frame at all
+    if ((grabbed || hovered) && !w.locked && !w.interactive && a >= 1.0f) {  // locked windows / menu: no frame
       const float m = GrabMargin(w);
       addQuad(grabbed ? frameGrab_ : onZone ? frameZone_ : frameHover_, world * Pose::Translation({0, 0, -0.002f}),
               w.width + 2 * m, h + 2 * m, true);
@@ -946,7 +1005,9 @@ XrResult OverlaySession::EndFrame(const XrFrameEndInfo* info) {
 
     SyncIpc();
     UpdateHead(info->displayTime);
+    UpdateHeadFollow(dt);
     UpdateGaze();
+    PublishGaze();
     if (centered_) SummonWindows();
     input_.Update(localSpace_, info->displayTime, head_, headValid_);
 
