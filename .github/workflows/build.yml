@@ -47,10 +47,22 @@ jobs:
             EDOverlayBoard.zip
             EDOverlayBoard-Setup.exe
 
+      # The release description comes from release-notes.md (German + English, written for each
+      # release). It must name the tag's version, so old notes never end up on a new release.
+      - name: Check release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          if (-not (Select-String -Path release-notes.md -SimpleMatch $version -Quiet)) {
+            Write-Error "release-notes.md does not mention version $version - update it before tagging"
+            exit 1
+          }
+
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          body_path: release-notes.md
           files: |
             EDOverlayBoard.zip
             dist/EDOverlayBoard-Setup-*.exe

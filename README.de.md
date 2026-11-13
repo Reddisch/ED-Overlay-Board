@@ -288,7 +288,9 @@ powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
 ```
 
 Ergebnis: `dist\EDOverlayBoard-Setup-<version>.exe`. Ein Git-Tag `v*` lässt die GitHub Action
-ein Release mit ZIP und Installer erzeugen.
+ein Release mit ZIP und Installer erzeugen. Die Beschreibung kommt aus `release-notes.md` – dort vor dem
+Taggen die Notizen zur neuen Version eintragen (Deutsch und Englisch); der Build bricht ab, wenn die Datei
+die Version des Tags nicht nennt.
 
 ## Projektstruktur
 
