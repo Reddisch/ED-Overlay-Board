@@ -85,6 +85,7 @@ add_executable(EDOverlayBoard
   src/app/LayerRegistration.cpp
   src/app/WindowCaptureSource.cpp
   src/app/ClickSound.cpp
+  src/app/ShipTracker.cpp
   src/app/app.rc
   src/common/Log.cpp
 )
@@ -95,7 +96,7 @@ target_include_directories(EDOverlayBoard PRIVATE src/app src/common "${JSON_DIR
 target_compile_definitions(EDOverlayBoard PRIVATE ${COMMON_DEFS} DIRECTINPUT_VERSION=0x0800)
 target_compile_options(EDOverlayBoard PRIVATE ${COMMON_OPTS})
 target_link_libraries(EDOverlayBoard PRIVATE imgui
-  d3d11 dxgi d2d1 dwrite dwmapi dinput8 dxguid windowscodecs windowsapp advapi32 shell32 shcore d3dcompiler winmm)
+  d3d11 dxgi d2d1 dwrite dwmapi dinput8 dxguid windowscodecs windowsapp advapi32 shell32 ole32 shcore d3dcompiler winmm)
 install(FILES "${IMGUI_DIR}/LICENSE.txt" DESTINATION licenses RENAME imgui-LICENSE.txt)
 
 # ---------------------------------------------------------------------------

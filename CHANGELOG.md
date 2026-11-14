@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Layout per ship type: window positions, size and visibility are remembered per ship type
+  (and separately for SRV, fighter, on foot and taxi). The ship comes from the Elite journal
+  (`LoadGame` / `Loadout` / `ShipyardSwap` / `ShipyardNew`), the vehicle from `Status.json`.
+  A ship seen for the first time starts with the layout of the last ship. Setting
+  `perShipLayouts` (on by default), layouts in `shipLayouts`; *General* tab shows the detected
+  ship and lets you delete saved layouts. Only the app changes
+
 ## 0.5.0
 
 - VR menu follows the head: always in the middle of the view at about 55 cm, upright, slightly

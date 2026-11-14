@@ -246,6 +246,8 @@ void App::Tick() {
       if (id >= 0 && id < static_cast<int>(cfg_.bindings.size())) Execute(cfg_.bindings[static_cast<size_t>(id)]);
   }
 
+  UpdateShipLayout();
+
   for (auto& s : slots_) {
     bool changed = false;
     ID3D11Texture2D* tex = s.source ? s.source->Update(changed) : nullptr;
@@ -745,6 +747,69 @@ LRESULT CALLBACK App::HiddenWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 // ---------------------------------------------------------------------------
+// Per-ship layouts: every ship type (and SRV / fighter / on foot / taxi) remembers where the
+// windows are and which ones are shown. A ship seen for the first time starts with the layout
+// of the previous one.
+
+void App::UpdateShipLayout() {
+  const std::string& ship = ships_.Poll();
+  if (!cfg_.perShipLayouts) {
+    if (!activeLayout_.empty()) {
+      StoreLayout();
+      activeLayout_.clear();
+      Log("Per-ship layouts off");
+    }
+    return;
+  }
+  if (ship.empty() || ship == activeLayout_) return;
+
+  StoreLayout();  // keep the latest changes of the ship we leave
+  if (ShipTracker::IsShip(activeLayout_)) lastShip_ = activeLayout_;
+  activeLayout_ = ship;
+  auto it = cfg_.shipLayouts.find(ship);
+  const bool known = it != cfg_.shipLayouts.end();
+  // a ship seen for the first time starts like the last ship flown (not like the SRV / on foot)
+  if (!known && ShipTracker::IsShip(ship) && !lastShip_.empty()) it = cfg_.shipLayouts.find(lastShip_);
+  if (it == cfg_.shipLayouts.end()) {
+    Log("Layout '{}': new, starting with the current window positions", ship);
+  } else {
+    int applied = 0;
+    for (auto& s : slots_) {
+      if (s.internal) continue;
+      auto p = it->second.find(s.cfg->name);
+      if (p == it->second.end()) continue;  // window added later: stays where it is
+      s.cfg->position = p->second.position;
+      s.cfg->rotation = p->second.rotation;
+      s.cfg->width = p->second.width;
+      s.cfg->visible = p->second.visible;
+      s.pushPlacement = true;
+      s.pending = true;
+      ++applied;
+    }
+    if (known)
+      Log("Layout '{}' applied ({} window(s))", ship, applied);
+    else
+      Log("Layout '{}': new, starting with the layout of '{}'", ship, lastShip_);
+  }
+  StoreLayout();
+  MarkDirty();
+}
+
+void App::StoreLayout() {
+  if (activeLayout_.empty()) return;
+  auto& layout = cfg_.shipLayouts[activeLayout_];
+  for (const auto& c : cfg_.windows) layout[c.name] = {c.position, c.rotation, c.width, c.visible};
+}
+
+void App::DeleteLayout(const std::string& ship) {
+  if (ship == activeLayout_) return;  // the active one is rewritten right away anyway
+  if (cfg_.shipLayouts.erase(ship)) {
+    Log("Layout '{}' deleted", ship);
+    MarkDirty();
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 void App::MarkDirty() {
   dirty_ = true;
@@ -756,6 +821,7 @@ void App::SaveIfIdle(bool force) {
   if (!force && std::chrono::steady_clock::now() - dirtySince_ < 1500ms) return;
   for (auto& s : slots_)
     if (!s.internal) s.cfg->page = s.source->Page();
+  StoreLayout();
   if (cfg_.Save()) Log("Settings saved.");
   dirty_ = false;
 }

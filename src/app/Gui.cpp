@@ -326,6 +326,7 @@ void SettingsWindow::DrawWindowsTab() {
   }
   ImGui::SameLine();
   if (ImGui::Button(T("Löschen", "Delete"), {half, 0}) && selected_ < static_cast<int>(cfg.windows.size())) {
+    for (auto& [ship, layout] : cfg.shipLayouts) layout.erase(cfg.windows[static_cast<size_t>(selected_)].name);
     cfg.windows.erase(cfg.windows.begin() + selected_);
     selected_ = std::max(0, selected_ - 1);
     app_.ConfigChanged(true);
@@ -361,6 +362,13 @@ void SettingsWindow::DrawWindowsTab() {
   if (ImGui::IsItemDeactivatedAfterEdit()) {
     for (auto& b : cfg.bindings)
       if (b.window == nameBeforeEdit_) b.window = w.name;
+    for (auto& [ship, layout] : cfg.shipLayouts) {  // per-ship positions follow the new name
+      auto node = layout.extract(nameBeforeEdit_);
+      if (!node.empty() && !layout.count(w.name)) {
+        node.key() = w.name;
+        layout.insert(std::move(node));
+      }
+    }
     app_.ConfigChanged(false);
   }
 
@@ -483,6 +491,10 @@ void SettingsWindow::DrawWindowsTab() {
   }
 
   ImGui::SeparatorText(T("Position (relativ zur Zentrierung)", "Position (relative to the recentered view)"));
+  if (!app_.ActiveLayout().empty())
+    ImGui::TextDisabled(T("Gilt für: %s (Position und Sichtbarkeit pro Schiff)",
+                          "Applies to: %s (position and visibility per ship)"),
+                        ShipTracker::DisplayName(app_.ActiveLayout()).c_str());
   bool placed = false;
   placed |= ImGui::SliderFloat(T("Breite (m)###width", "Width (m)###width"), &w.width, 0.05f, 3.0f, "%.2f");
   placed |= ImGui::DragFloat3("Position (m)###pos", &w.position.x, 0.005f, -5.0f, 5.0f, "%.3f");
@@ -679,6 +691,8 @@ void SettingsWindow::DrawGeneralTab() {
   if (c) app_.ConfigChanged(false);
   ImGui::PopItemWidth();
 
+  DrawShipLayouts();
+
   ImGui::SeparatorText("OpenXR-Layer");
   bool registered = LayerRegistration::IsRegistered();
   ImGui::Text("Status: %s", registered ? T("registriert (wird in OpenXR-Spiele geladen)", "registered (loaded into OpenXR games)")
@@ -693,6 +707,37 @@ void SettingsWindow::DrawGeneralTab() {
   wchar_t local[MAX_PATH]{};
   GetEnvironmentVariableW(L"LOCALAPPDATA", local, MAX_PATH);
   if (ImGui::Button(T("Layer-Logs öffnen", "Open layer logs"))) OpenFolder(std::filesystem::path(local) / L"EDOverlayBoard");
+}
+
+void SettingsWindow::DrawShipLayouts() {
+  auto& cfg = app_.Config();
+  ImGui::SeparatorText(T("Layout pro Schiff", "Layout per ship"));
+  if (ImGui::Checkbox(T("Fensterpositionen und Sichtbarkeit pro Schiffstyp merken###pership",
+                        "Remember window positions and visibility per ship type###pership"),
+                      &cfg.perShipLayouts))
+    app_.ConfigChanged(false);
+  ImGui::SetItemTooltip("%s", T("Der Schiffstyp wird aus dem Journal von Elite gelesen. SRV, Fighter, zu Fuß und Taxi "
+                                "haben ein eigenes Layout. Ein neues Schiff übernimmt das Layout des vorherigen.",
+                                "The ship type is read from the Elite journal. SRV, fighter, on foot and taxi have "
+                                "their own layout. A new ship starts with the layout of the previous one."));
+  const std::string& ship = app_.CurrentShip();
+  ImGui::Text(T("Erkannt: %s", "Detected: %s"),
+              ship.empty() ? T("noch nichts (Journal nicht gefunden oder leer)", "nothing yet (journal not found or empty)")
+                           : ShipTracker::DisplayName(ship).c_str());
+  if (cfg.shipLayouts.empty()) return;
+  ImGui::TextDisabled("%s", T("Gespeicherte Layouts:", "Saved layouts:"));
+  std::string toDelete;
+  for (const auto& [key, layout] : cfg.shipLayouts) {
+    ImGui::PushID(key.c_str());
+    const bool active = key == app_.ActiveLayout();
+    ImGui::BulletText("%s%s", ShipTracker::DisplayName(key).c_str(), active ? T("  (aktiv)", "  (active)") : "");
+    if (!active) {
+      ImGui::SameLine();
+      if (ImGui::SmallButton(T("Löschen", "Delete"))) toDelete = key;
+    }
+    ImGui::PopID();
+  }
+  if (!toDelete.empty()) app_.DeleteLayout(toDelete);
 }
 
 void SettingsWindow::DrawStatusTab() {

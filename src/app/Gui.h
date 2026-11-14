@@ -40,6 +40,7 @@ class SettingsWindow {
   void DrawWindowsTab();
   void DrawBindingsTab();
   void DrawGeneralTab();
+  void DrawShipLayouts();
   void DrawStatusTab();
 
   App& app_;

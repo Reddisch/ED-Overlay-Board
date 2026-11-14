@@ -75,6 +75,23 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       sharpness = s.value("sharpness", sharpness);
       menuWidth = s.value("menuWidth", menuWidth);
       language = s.value("language", language);
+      perShipLayouts = s.value("perShipLayouts", perShipLayouts);
+    }
+
+    shipLayouts.clear();
+    const json layouts = raw_.value("shipLayouts", json::object());  // keep alive for items()
+    for (const auto& [ship, ws] : layouts.items()) {
+      if (!ws.is_object()) continue;
+      auto& layout = shipLayouts[ship];
+      for (const auto& [name, p] : ws.items()) {
+        if (!p.is_object()) continue;
+        ShipPlacement sp;
+        sp.position = ReadVec3(p, "position", sp.position);
+        sp.rotation = ReadVec3(p, "rotation", sp.rotation);
+        sp.width = p.value("width", sp.width);
+        sp.visible = p.value("visible", sp.visible);
+        layout[name] = sp;
+      }
     }
 
     windows.clear();
@@ -158,6 +175,7 @@ bool AppConfig::Save() {
   s["sharpness"] = Round(sharpness, 0.01);
   s["menuWidth"] = Round(menuWidth, 0.001);
   if (!language.empty()) s["language"] = language;
+  s["perShipLayouts"] = perShipLayouts;
 
   json ws = json::array();
   for (const auto& c : windows) {
@@ -210,9 +228,21 @@ bool AppConfig::Save() {
     bs.push_back(std::move(j));
   }
 
+  json layouts = json::object();
+  for (const auto& [ship, layout] : shipLayouts) {
+    json l = json::object();
+    for (const auto& [name, p] : layout)
+      l[name] = {{"position", Vec3Json(p.position, 0.001)},
+                 {"rotation", Vec3Json(p.rotation, 0.1)},
+                 {"width", Round(p.width, 0.001)},
+                 {"visible", p.visible}};
+    layouts[ship] = std::move(l);
+  }
+
   raw_["settings"] = std::move(s);
   raw_["windows"] = std::move(ws);
   raw_["bindings"] = std::move(bs);
+  raw_["shipLayouts"] = std::move(layouts);
 
   auto tmp = file;
   tmp += ".tmp";

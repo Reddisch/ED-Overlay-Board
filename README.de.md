@@ -42,6 +42,8 @@ Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculu
 - **Titelleiste ausblenden** und Ränder abschneiden für gespiegelte Fenster
 - **Ruhiges Bild:** Inhalte werden per Mipmapping passend zur Displayauflösung vorgefiltert (kein Flimmern
   bei großen Quellen wie 4K-Kneeboards). `settings.sharpness`: 1.0 = ruhig, 1.5–2 = schärfer
+- **Layout pro Schiffstyp:** Fensterpositionen und Sichtbarkeit werden pro Schiff gemerkt (und für SRV,
+  Fighter, zu Fuß, Taxi) – das Schiff wird aus dem Journal des Spiels gelesen
 - Layout wird automatisch gespeichert, Zeiger-Cursor, Rahmen beim Anvisieren, Haptik
 
 ## Wie es funktioniert
@@ -199,6 +201,7 @@ Alles lässt sich im Einstellungsfenster einstellen; die Datei muss man nicht vo
 | `lookToShow` / `lookMarginDeg` | Fenster nur beim Hinsehen zeigen / zusätzlicher Winkel um das Fenster |
 | `sharpness` | 1.0 = ruhiges Bild, 1.5–2 = schärfer, kann flimmern |
 | `menuWidth` | Breite des VR-Menüs in Metern |
+| `perShipLayouts` | Position, Größe und Sichtbarkeit der Fenster pro Schiffstyp merken (Standard `true`); gespeichert in `shipLayouts` |
 
 ### Fenster (`windows`, max. 15)
 

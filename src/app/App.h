@@ -8,6 +8,7 @@
 #include "Ipc.h"
 #include "JoystickManager.h"
 #include "KeyboardCapture.h"
+#include "ShipTracker.h"
 
 #include <dxgi1_2.h>
 
@@ -59,6 +60,12 @@ class App {
   bool TakeLearned(std::string& key, JoystickManager::Press& joy, bool& cancelled);
   std::vector<std::string> JoystickNames() const { return joysticks_.DeviceNames(); }
 
+  // per-ship layouts: ship type / vehicle detected from the game journal ("" = unknown) and
+  // the layout currently in use ("" = per-ship layouts off or nothing detected yet)
+  const std::string& CurrentShip() const { return ships_.Current(); }
+  const std::string& ActiveLayout() const { return activeLayout_; }
+  void DeleteLayout(const std::string& ship);
+
   void OpenSettings();
   void Quit() { quit_ = true; }
 
@@ -95,6 +102,8 @@ class App {
   void StopKeyboard(const char* reason);
   void CheckKeyboard();
   void ForwardKey(const KeyboardCapture::Event& e);
+  void UpdateShipLayout();
+  void StoreLayout();
   void MarkDirty();
   void SaveIfIdle(bool force);
   void CreateTrayIcon();
@@ -108,6 +117,9 @@ class App {
   HotkeyManager hotkeys_;
   JoystickManager joysticks_;
   KeyboardCapture keyboard_;
+  ShipTracker ships_;
+  std::string activeLayout_;
+  std::string lastShip_;  // last real ship (not SRV / fighter / on foot / taxi)
   int keyboardSlot_ = -1;   // slot receiving the PC keyboard, -1 = keyboard mode off
   int lastMouseSlot_ = -1;  // program window clicked last in VR
   HWND keyTarget_ = nullptr;

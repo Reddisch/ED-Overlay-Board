@@ -42,6 +42,8 @@ tracking; recenter with a keyboard hotkey or a HOTAS/joystick button. Works with
 - **Hide the title bar** and trim the edges of mirrored windows
 - **Calm picture:** content is pre-filtered with mipmaps to match the display resolution (no shimmer with
   large sources such as 4K kneeboards). `settings.sharpness`: 1.0 = calm, 1.5–2 = sharper
+- **Layout per ship type:** window positions and visibility are remembered per ship (and for SRV, fighter,
+  on foot, taxi) – the ship is read from the game journal
 - Layout is saved automatically, pointer cursor, frame when pointing at a window, haptics
 
 ## How it works
@@ -198,6 +200,7 @@ Everything can be set in the settings window; you do not need to edit the file b
 | `lookToShow` / `lookMarginDeg` | only show windows when looking at them / extra angle around a window |
 | `sharpness` | 1.0 = calm picture, 1.5–2 = sharper, may shimmer |
 | `menuWidth` | width of the VR menu in meters |
+| `perShipLayouts` | remember window position, size and visibility per ship type (default `true`); stored in `shipLayouts` |
 
 ### Windows (`windows`, max. 15)
 

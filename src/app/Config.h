@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 
 #include <filesystem>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -58,6 +59,14 @@ struct BindingConfig {
   std::string ButtonsText() const;  // e.g. "5 + 12"
 };
 
+// Where a window sits (and whether it is shown) in one ship type / vehicle
+struct ShipPlacement {
+  Vec3 position{0.0f, 0.0f, -1.0f};
+  Vec3 rotation{0.0f, 0.0f, 0.0f};
+  float width = 0.5f;
+  bool visible = true;
+};
+
 struct AppConfig {
   std::vector<WindowConfig> windows;
   std::vector<BindingConfig> bindings;
@@ -72,6 +81,9 @@ struct AppConfig {
   float sharpness = 1.0f;      // 1 = smooth (anti-aliased), 1.5-2 = sharper but may shimmer
   float menuWidth = 0.40f;     // VR quick menu width (m)
   std::string language;        // "de", "en" or "" = Windows display language
+  bool perShipLayouts = true;  // remember window placement + visibility per ship type (from the game journal)
+  // ship type / vehicle ("krait_mkii", "srv", "onfoot", ...) -> window name -> placement
+  std::map<std::string, std::map<std::string, ShipPlacement>> shipLayouts;
 
   std::filesystem::path file;
   std::filesystem::path Dir() const { return file.parent_path(); }
