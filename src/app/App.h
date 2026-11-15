@@ -1,9 +1,10 @@
 #pragma once
 
-#include "ClickSound.h"
+#include "Sounds.h"
 #include "Config.h"
 #include "ContentSource.h"
 #include "D3D.h"
+#include "GazeIpc.h"
 #include "HotkeyManager.h"
 #include "Ipc.h"
 #include "JoystickManager.h"
@@ -38,7 +39,8 @@ class App {
   void Do(const std::string& action, const std::string& window = {});
   std::string WindowStatus(int window) const;
   void SetLanguage(const std::string& language);  // "de" / "en"; applies and saves
-  void PlayClick() { clickSound_.Play(cfg_.clickVolume); }
+  void PlayClick() { sounds_.Play(Sounds::kClick, cfg_.clickVolume); }
+  void PlayShowSound(int effect) { sounds_.PlayEffect(effect, true, cfg_.showSoundVolume); }  // preview
 
   struct VrStatus {
     bool connected = false;
@@ -87,6 +89,9 @@ class App {
     uint32_t seenLayerPlacement = 0, seenClick = 0, seenDown = 0, seenUp = 0;
     float seenWheel = 0.0f, seenWheelX = 0.0f;
     bool mouse = false;  // mouse input enabled (last value sent to the layer)
+    int want = -1;       // visible by config / "hide all" (-1 = not known yet)
+    uint64_t wantChangedAt = 0;  // GetTickCount64() of the last change of `want`
+    int seenShown = -1;  // drawn in VR according to the layer (-1 = not known)
   };
 
   bool Init();
@@ -97,6 +102,7 @@ class App {
   std::unique_ptr<ContentSource> MakeSource(const WindowConfig& c);
   bool Publish(Slot& s, ID3D11Texture2D* src);
   void SyncShared();
+  void UpdateShowSounds();
   void UpdateLearning();
   void StartKeyboard();
   void StopKeyboard(const char* reason);
@@ -124,7 +130,8 @@ class App {
   int lastMouseSlot_ = -1;  // program window clicked last in VR
   HWND keyTarget_ = nullptr;
   BYTE keyState_[256]{};    // keys forwarded to the target (for ToUnicodeEx and key repeat)
-  ClickSound clickSound_;
+  Sounds sounds_;
+  gaze::Reader gaze_;  // which windows the layer really draws (for the show / hide sounds)
   ipc::SharedState shm_;
   HWND hwnd_ = nullptr;
   bool trayCreated_ = false;

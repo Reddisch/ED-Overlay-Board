@@ -67,6 +67,8 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       showCursor = s.value("showCursor", showCursor);
       haptics = s.value("haptics", haptics);
       clickVolume = s.value("clickVolume", clickVolume);
+      showSoundVolume = s.value("showSoundVolume", showSoundVolume);
+      showSoundOnLook = s.value("showSoundOnLook", showSoundOnLook);
       scaleSpeed = s.value("scaleSpeed", scaleSpeed);
       pushPullSpeed = s.value("pushPullSpeed", pushPullSpeed);
       swipeSpeed = s.value("swipeSpeed", swipeSpeed);
@@ -167,6 +169,8 @@ bool AppConfig::Save() {
   s["showCursor"] = showCursor;
   s["haptics"] = haptics;
   s["clickVolume"] = Round(clickVolume, 0.01);
+  s["showSoundVolume"] = Round(showSoundVolume, 0.01);
+  s["showSoundOnLook"] = showSoundOnLook;
   s["scaleSpeed"] = Round(scaleSpeed, 0.01);
   s["pushPullSpeed"] = Round(pushPullSpeed, 0.01);
   s["swipeSpeed"] = Round(swipeSpeed, 0.01);

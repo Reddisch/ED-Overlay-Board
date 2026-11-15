@@ -88,4 +88,50 @@ class Publisher {
   bool failed_ = false;
 };
 
+// Reading side (also usable as an example for other programs).
+class Reader {
+ public:
+  Reader() = default;
+  Reader(const Reader&) = delete;
+  Reader& operator=(const Reader&) = delete;
+  ~Reader() { Close(); }
+
+  // Consistent copy of the state; false if the layer is not running (or stopped rendering).
+  bool Read(State& out) {
+    if (!state_) {
+      const uint64_t now = GetTickCount64();
+      if (now - lastTry_ < 1000) return false;  // try to open at most once a second
+      lastTry_ = now;
+      mapping_ = OpenFileMappingW(FILE_MAP_READ, FALSE, kMappingName);
+      if (mapping_) state_ = static_cast<const State*>(MapViewOfFile(mapping_, FILE_MAP_READ, 0, 0, sizeof(State)));
+      if (!state_) {
+        Close();
+        return false;
+      }
+    }
+    if (state_->magic != kMagic || state_->version != kVersion) return false;
+    for (int attempt = 0; attempt < 4; ++attempt) {
+      const LONG before = state_->sequence;
+      MemoryBarrier();
+      if (before & 1) continue;  // being written right now
+      out = *const_cast<const State*>(state_);
+      MemoryBarrier();
+      if (state_->sequence == before) return out.heartbeat != 0 && GetTickCount64() - out.heartbeat < 1000;
+    }
+    return false;
+  }
+
+ private:
+  void Close() {
+    if (state_) UnmapViewOfFile(state_);
+    if (mapping_) CloseHandle(mapping_);
+    state_ = nullptr;
+    mapping_ = nullptr;
+  }
+
+  HANDLE mapping_ = nullptr;
+  const State* state_ = nullptr;
+  uint64_t lastTry_ = 0;
+};
+
 }  // namespace gaze

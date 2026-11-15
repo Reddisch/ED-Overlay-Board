@@ -8,6 +8,10 @@
   A ship seen for the first time starts with the layout of the last ship. Setting
   `perShipLayouts` (on by default), layouts in `shipLayouts`; *General* tab shows the detected
   ship and lets you delete saved layouts. Only the app changes
+- Sounds when windows appear / disappear, matching the show effect (hologram shimmer, zoom whoosh,
+  CRT power-on / power-off, a short blip without effect). Settings `showSoundVolume` (0 = off) and
+  `showSoundOnLook` (also when looking at / away, off by default); preview when choosing an effect.
+  Sounds are now mixed (waveOut), so a click no longer cuts off another sound. Only the app changes
 
 ## 0.5.0
 

@@ -84,7 +84,7 @@ add_executable(EDOverlayBoard
   src/app/KeyboardCapture.cpp
   src/app/LayerRegistration.cpp
   src/app/WindowCaptureSource.cpp
-  src/app/ClickSound.cpp
+  src/app/Sounds.cpp
   src/app/ShipTracker.cpp
   src/app/app.rc
   src/common/Log.cpp

@@ -259,7 +259,45 @@ void App::Tick() {
   if (settings_) settings_->Frame();
   CheckKeyboard();
   SyncShared();
+  UpdateShowSounds();
   SaveIfIdle(false);
+}
+
+// Sound when a window appears / disappears in VR, matching its show effect. The layer decides
+// what is drawn (it also knows about looking at / away), so its gaze info is the source.
+// Only changes caused by the user (hotkey, menu, settings, ship layout) are heard, plus - if
+// switched on - appearing / disappearing by looking at a window.
+void App::UpdateShowSounds() {
+  sounds_.Update();
+  const uint64_t now = GetTickCount64();
+  for (auto& s : slots_) {
+    const int want = s.cfg->visible && (!allHidden_ || s.internal) ? 1 : 0;
+    if (s.want >= 0 && want != s.want) s.wantChangedAt = now;
+    s.want = want;
+  }
+
+  static gaze::State g;  // ~1.3 KB, not on the stack every tick
+  if (!gaze_.Read(g)) {
+    for (auto& s : slots_) s.seenShown = -1;  // game not running: start fresh next time
+    return;
+  }
+  const size_t n = std::min(slots_.size(), static_cast<size_t>(gaze::kMaxWindows));
+  for (size_t i = 0; i < n; ++i) {
+    Slot& s = slots_[i];
+    const gaze::Entry& e = g.windows[i];
+    if (!e.active || s.cfg->name.compare(0, sizeof(e.name) - 1, e.name) != 0) {  // layer not updated yet
+      s.seenShown = -1;
+      continue;
+    }
+    const int shown = e.shown ? 1 : 0;
+    const int before = s.seenShown;
+    s.seenShown = shown;
+    if (before < 0 || before == shown || s.internal) continue;
+
+    const bool byUser = now - s.wantChangedAt < 1500;  // the layer follows within a few frames
+    const bool look = s.cfg->lookToShow < 0 ? cfg_.lookToShow : s.cfg->lookToShow == 1;
+    if (byUser || (look && cfg_.showSoundOnLook)) sounds_.PlayEffect(s.cfg->showEffect, shown != 0, cfg_.showSoundVolume);
+  }
 }
 
 bool App::Publish(Slot& s, ID3D11Texture2D* src) {
@@ -381,7 +419,7 @@ void App::SyncShared() {
     if (w.clickSerial != s.seenClick) {
       s.seenClick = w.clickSerial;
       if (!s.internal && !mouse) {
-        clickSound_.Play(cfg_.clickVolume);
+        PlayClick();
         s.source->OnClick(w.clickX, w.clickY);
         MarkDirty();
       }
@@ -392,7 +430,7 @@ void App::SyncShared() {
       uint32_t ups = std::min(w.pointerUpSerial - s.seenUp, 8u);
       s.seenDown = w.pointerDownSerial;
       s.seenUp = w.pointerUpSerial;
-      if (downs > 0) clickSound_.Play(cfg_.clickVolume);
+      if (downs > 0) PlayClick();
       if (downs > 0 && !s.internal) {  // the keyboard follows the program window clicked last
         lastMouseSlot_ = static_cast<int>(i);
         if (keyboardSlot_ >= 0 && keyboardSlot_ != lastMouseSlot_) {
@@ -476,7 +514,7 @@ void App::Execute(const BindingConfig& b) {
       StopKeyboard("switched off");
     else
       StartKeyboard();
-    clickSound_.Play(cfg_.clickVolume);
+    PlayClick();
   } else if (b.action == "openSettings") {
     OpenSettings();
   } else {

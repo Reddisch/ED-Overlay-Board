@@ -37,7 +37,7 @@ tracking; recenter with a keyboard hotkey or a HOTAS/joystick button. Works with
   effects – usable with controllers or pinch
 - **Dimming with a filter color** per window (e.g. against bright PNGs) – works with every runtime, including VDXR
 - **Show effects** per window: hologram, zoom, CRT TV
-- **Click sound** for clicks in VR (adjustable volume)
+- **Click sound** for clicks in VR and **show / hide sounds** matching the effect (adjustable volume)
 - **German / English**
 - **Hide the title bar** and trim the edges of mirrored windows
 - **Calm picture:** content is pre-filtered with mipmaps to match the display resolution (no shimmer with
@@ -195,6 +195,8 @@ Everything can be set in the settings window; you do not need to edit the file b
 | `showCursor` | show the pointer dot on the windows |
 | `haptics` | controller vibration |
 | `clickVolume` | click sound volume, 0 = off |
+| `showSoundVolume` | volume of the show / hide sound (matches the window's effect), 0 = off |
+| `showSoundOnLook` | `true`: that sound also plays when a window appears / disappears by looking at it / away |
 | `scaleSpeed` / `pushPullSpeed` | speed of resizing / changing the distance with the thumbstick |
 | `swipeSpeed` | swipe scrolling speed |
 | `lookToShow` / `lookMarginDeg` | only show windows when looking at them / extra angle around a window |
@@ -308,7 +310,7 @@ src/app/      companion app
   LayerRegistration.*      registers the OpenXR implicit layer in HKCU
   Config.*, D3D.*          config.json, D3D11, placeholder panels, filter color (shader)
   Gui.*                    settings window and VR menu (Dear ImGui)
-  ClickSound.*             click sound
+  Sounds.*                 click and show / hide sounds
 src/layer/    OpenXR API layer (DLL)
   Layer.cpp                loader negotiation, intercepted OpenXR functions
   OverlaySession.*         swapchains, quad layers, grabbing/scaling/recentering

@@ -464,8 +464,10 @@ void SettingsWindow::DrawWindowsTab() {
   ImGui::SetItemTooltip("%s", T("Nur wirksam, wenn die OpenXR-Runtime das unterstützt (VDXR derzeit nicht).",
                                 "Only works if the OpenXR runtime supports it (VDXR currently does not)."));
   if (ImGui::Combo(T("Einblendeffekt###effect", "Show effect###effect"), &w.showEffect,
-                   T("Keiner\0Hologramm\0Zoom\0Röhren-TV\0", "None\0Hologram\0Zoom\0CRT TV\0")))
+                   T("Keiner\0Hologramm\0Zoom\0Röhren-TV\0", "None\0Hologram\0Zoom\0CRT TV\0"))) {
     app_.ConfigChanged(false);
+    app_.PlayShowSound(w.showEffect);  // preview
+  }
   ImGui::SetItemTooltip("%s", T("Animation beim Ein- und Ausblenden (auch beim Hinsehen / Wegsehen).",
                                 "Animation when the window appears or disappears (also when looking at / away)."));
   if (ImGui::ColorEdit3(T("Filterfarbe###tint", "Filter color###tint"), w.tint, ImGuiColorEditFlags_NoInputs))
@@ -679,6 +681,22 @@ void SettingsWindow::DrawGeneralTab() {
       c = true;
     }
     if (ImGui::IsItemDeactivatedAfterEdit()) app_.PlayClick();  // preview
+  }
+  {
+    float pct = cfg.showSoundVolume * 100.0f;
+    if (ImGui::SliderFloat(T("Ein-/Ausblendgeräusch (Lautstärke)###showvol", "Show / hide sound (volume)###showvol"),
+                           &pct, 0.0f, 100.0f, pct < 0.5f ? T("aus", "off") : "%.0f %%")) {
+      cfg.showSoundVolume = pct / 100.0f;
+      c = true;
+    }
+    ImGui::SetItemTooltip("%s", T("Passend zum Einblendeffekt des Fensters (Hologramm, Zoom, Röhren-TV, ohne Effekt).",
+                                  "Matches the window's show effect (hologram, zoom, CRT TV, no effect)."));
+    if (ImGui::IsItemDeactivatedAfterEdit()) app_.PlayShowSound(1);  // preview: hologram
+    c |= ImGui::Checkbox(T("Geräusch auch beim Hinsehen / Wegsehen###showlook",
+                           "Sound also when looking at / away###showlook"),
+                         &cfg.showSoundOnLook);
+    ImGui::SetItemTooltip("%s", T("Für Fenster, die nur beim Hinschauen erscheinen.",
+                                  "For windows that only appear while looking at them."));
   }
   c |= ImGui::SliderFloat(T("Größe ändern per Stick (Tempo)###scale", "Resize with thumbstick (speed)###scale"),
                           &cfg.scaleSpeed, 0.2f, 3.0f, "%.2f");
@@ -975,6 +993,7 @@ void VrMenu::Draw() {
       if (ImGui::Button(effects[e], {ew, 0}) && !active) {
         w.showEffect = e;
         app_.ConfigChanged(false);
+        app_.PlayShowSound(e);  // preview
       }
       ImGui::PopID();
       if (active) ImGui::PopStyleColor();

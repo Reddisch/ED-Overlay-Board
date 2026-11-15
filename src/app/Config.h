@@ -73,6 +73,8 @@ struct AppConfig {
   bool showCursor = true;
   bool haptics = true;
   float clickVolume = 0.5f;    // click sound in VR (0 = off)
+  float showSoundVolume = 0.5f; // sound when a window appears / disappears, matching its effect (0 = off)
+  bool showSoundOnLook = false; // also when it appears / disappears by looking at it / away (lookToShow)
   float scaleSpeed = 1.0f;     // thumbstick resize speed
   float pushPullSpeed = 0.75f; // thumbstick push/pull speed (m/s)
   float swipeSpeed = 1.0f;     // drag-to-scroll: wheel notches per ~60 pixels of dragging

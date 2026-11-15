@@ -37,7 +37,7 @@ Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculu
   Effekte – mit Controller oder Pinch bedienbar
 - **Abdunkeln mit Filterfarbe** pro Fenster (z. B. helle PNGs gegen Blenden) – funktioniert mit jeder Runtime, auch VDXR
 - **Einblendeffekte** pro Fenster: Hologramm, Zoom, Röhren-TV
-- **Klickgeräusch** bei Klicks im VR (Lautstärke einstellbar)
+- **Klickgeräusch** bei Klicks im VR und **Ein-/Ausblendgeräusche** passend zum Effekt (Lautstärke einstellbar)
 - **Deutsch / Englisch**
 - **Titelleiste ausblenden** und Ränder abschneiden für gespiegelte Fenster
 - **Ruhiges Bild:** Inhalte werden per Mipmapping passend zur Displayauflösung vorgefiltert (kein Flimmern
@@ -196,6 +196,8 @@ Alles lässt sich im Einstellungsfenster einstellen; die Datei muss man nicht vo
 | `showCursor` | Zeiger-Punkt auf den Fenstern anzeigen |
 | `haptics` | Vibration der Controller |
 | `clickVolume` | Lautstärke des Klickgeräuschs, 0 = aus |
+| `showSoundVolume` | Lautstärke des Ein-/Ausblendgeräuschs (passend zum Effekt des Fensters), 0 = aus |
+| `showSoundOnLook` | `true`: das Geräusch auch beim Erscheinen/Verschwinden durch Hin-/Wegsehen |
 | `scaleSpeed` / `pushPullSpeed` | Tempo für Größe ändern bzw. Abstand ändern per Stick |
 | `swipeSpeed` | Tempo beim Wisch-Scrollen |
 | `lookToShow` / `lookMarginDeg` | Fenster nur beim Hinsehen zeigen / zusätzlicher Winkel um das Fenster |
@@ -309,7 +311,7 @@ src/app/      Begleit-App
   LayerRegistration.*      OpenXR-Implicit-Layer in HKCU eintragen
   Config.*, D3D.*          config.json, D3D11, Platzhalter-Panels, Filterfarbe (Shader)
   Gui.*                    Einstellungsfenster und VR-Menü (Dear ImGui)
-  ClickSound.*             Klickgeräusch
+  Sounds.*                 Klick- und Ein-/Ausblendgeräusche
 src/layer/    OpenXR-API-Layer (DLL)
   Layer.cpp                Loader-Verhandlung, abgefangene OpenXR-Funktionen
   OverlaySession.*         Swapchains, Quad-Layer, Greifen/Skalieren/Zentrieren
