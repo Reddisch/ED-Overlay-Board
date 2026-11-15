@@ -360,9 +360,17 @@ void OverlaySession::UpdateHeadFollow(float dt) {
       bool move = angle > kDeadzoneDeg;
       if (headAim_) {
         // aiming with the head: the menu must hold still while looking around on it, and only
-        // catches up (all the way back to the middle) after looking clearly beside it
-        const float half = std::atan(0.5f * std::min(w.width, std::max(w.Height(), 0.05f)) / kDistance) * kRadToDeg;
-        if (angle > half + 4.0f) w.following = true;
+        // catches up (all the way back to the middle) after looking clearly beside it.
+        // Horizontal and vertical are checked separately: the menu is usually taller than wide,
+        // and the bottom row (e.g. "Close menu") must be reachable without the menu running away.
+        const Vec3 right = w.followDir.Cross({0.0f, 1.0f, 0.0f}).Normalized();
+        const Vec3 up = right.Cross(w.followDir).Normalized();
+        const float along = std::max(forward.Dot(w.followDir), 1e-3f);
+        const float yawDeg = std::fabs(std::atan2(forward.Dot(right), along)) * kRadToDeg;
+        const float pitchDeg = std::fabs(std::atan2(forward.Dot(up), along)) * kRadToDeg;
+        const float halfW = std::atan(0.5f * w.width / kDistance) * kRadToDeg;
+        const float halfH = std::atan(0.5f * std::max(w.Height(), 0.05f) / kDistance) * kRadToDeg;
+        if (yawDeg > halfW + 4.0f || pitchDeg > halfH + 4.0f || angle > 80.0f) w.following = true;
         if (angle < kDeadzoneDeg) w.following = false;
         move = w.following;
       }

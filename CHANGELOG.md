@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1
+
+- Aim with the head: the VR menu now checks horizontal and vertical separately whether you are still
+  looking at it (width / height of the menu). Before, the smaller side (the width) was used for both, so
+  looking down at the bottom row ("Close menu") made the menu run away. Only the layer changes (no IPC
+  change): restart Elite after updating
+
 ## 0.6.0
 
 - Layout per ship type: window positions, size and visibility are remembered per ship type
