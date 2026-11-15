@@ -801,7 +801,14 @@ void App::UpdateShipLayout() {
   }
   if (ship.empty() || ship == activeLayout_) return;
 
+  auto hiddenList = [&] {  // for the log: which windows are hidden right now
+    std::string h;
+    for (const auto& c : cfg_.windows)
+      if (!c.visible) h += (h.empty() ? "" : ", ") + c.name;
+    return h.empty() ? std::string("none") : h;
+  };
   StoreLayout();  // keep the latest changes of the ship we leave
+  if (!activeLayout_.empty()) Log("Layout '{}' stored (hidden: {})", activeLayout_, hiddenList());
   if (ShipTracker::IsShip(activeLayout_)) lastShip_ = activeLayout_;
   activeLayout_ = ship;
   auto it = cfg_.shipLayouts.find(ship);
@@ -825,9 +832,9 @@ void App::UpdateShipLayout() {
       ++applied;
     }
     if (known)
-      Log("Layout '{}' applied ({} window(s))", ship, applied);
+      Log("Layout '{}' applied ({} window(s), hidden: {})", ship, applied, hiddenList());
     else
-      Log("Layout '{}': new, starting with the layout of '{}'", ship, lastShip_);
+      Log("Layout '{}': new, starting with the layout of '{}' (hidden: {})", ship, lastShip_, hiddenList());
   }
   StoreLayout();
   MarkDirty();
