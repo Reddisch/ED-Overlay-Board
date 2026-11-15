@@ -52,6 +52,28 @@ class InputActions {
   XrSession attachedSession_ = XR_NULL_HANDLE;
 };
 
+// "One Euro" low-pass filter: strong smoothing while (almost) still, little lag while moving fast.
+struct OneEuro {
+  float minCutoff = 1.0f;  // Hz while still
+  float beta = 0.0f;       // how much faster movement raises the cutoff
+  bool init = false;
+  float x = 0.0f, dx = 0.0f;
+  float Filter(float value, float dt);
+};
+
+// Hand tracking ray: filtered, and steadied while pinching so a click lands where you aimed.
+struct HandRay {
+  OneEuro dir[3], org[3];
+  XrTime last = 0;
+  static constexpr int kHistory = 16;  // ring buffer of recent filtered rays (~180 ms at 90 Hz)
+  struct Sample { XrTime time; Vec3 origin, dir; } history[kHistory]{};
+  int head = 0, count = 0;
+  bool wasPinched = false, locked = false;
+  Vec3 lockOrigin, lockDir;
+  float blend = 1.0f;  // 0 = lock ray, 1 = live ray (after the lock broke: eases back to live)
+  void Reset() { *this = HandRay{}; }
+};
+
 // Session level: action spaces + hand trackers, produces PointerStates every frame.
 class SessionInput {
  public:
@@ -73,5 +95,6 @@ class SessionInput {
   XrHandTrackerEXT handTrackers_[2]{XR_NULL_HANDLE, XR_NULL_HANDLE};
   PointerState pointers_[2];
   bool pinch_[2]{};
+  HandRay rays_[2];
   bool grabLatch_[2]{}, selectLatch_[2]{};
 };

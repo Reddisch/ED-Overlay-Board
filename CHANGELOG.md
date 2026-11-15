@@ -12,6 +12,9 @@
   CRT power-on / power-off, a short blip without effect). Settings `showSoundVolume` (0 = off) and
   `showSoundOnLook` (also when looking at / away, off by default); preview when choosing an effect.
   Sounds are now mixed (waveOut), so a click no longer cuts off another sound. Only the app changes
+- Hand tracking: steadier pointer ray (adaptive "One Euro" filter: smooth while aiming, little lag
+  when moving fast) and pinch steadying: a pinch uses the ray from ~100 ms before the fingers closed and
+  holds it until the hand moves more than ~3°, so clicks land where you aimed. Layer change (restart Elite)
 
 ## 0.5.0
 
