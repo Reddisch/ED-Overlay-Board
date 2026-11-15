@@ -29,10 +29,8 @@ constexpr ProfileDef kProfiles[] = {
 
 constexpr float kOn = 0.6f, kOff = 0.4f;  // hysteresis for analog grip/trigger
 
-// hand ray steadying
-constexpr float kPinchRewindSec = 0.10f;  // the hand moves while the fingers close: use the ray from before
-constexpr float kLockBreakDeg = 3.0f;     // moving further than this while pinched = dragging, follow again
-constexpr float kLockEaseSec = 0.15f;     // ease from the lock ray back to the live ray
+constexpr float kLockEaseSec = 0.15f;  // ease from the click lock ray back to the live ray
+float Lerp(float a, float b, float t) { return a + (b - a) * t; }
 
 }  // namespace
 
@@ -203,6 +201,76 @@ float OneEuro::Filter(float value, float dt) {
   return x;
 }
 
+// strength 0..1 (settings "pointerSmoothing"). 0 = raw ray.
+void RaySteady::Apply(float strength, XrTime time, bool pressed, Pose& pose) {
+  strength = std::clamp(strength, 0.0f, 1.0f);
+  if (strength < 0.005f) {
+    Reset();
+    return;
+  }
+  const float dt = last ? static_cast<float>(time - last) * 1e-9f : 0.0f;
+  if (last && (dt <= 0.0f || dt > 0.25f)) Reset();  // tracking gap: start fresh
+  last = time;
+
+  // 1) adaptive filter: calm while aiming, little lag while moving fast
+  for (int i = 0; i < 3; ++i) {
+    dir[i].minCutoff = Lerp(4.0f, 0.3f, strength);  // Hz; direction in unit vector per second
+    dir[i].beta = Lerp(1.0f, 4.0f, strength);
+    org[i].minCutoff = Lerp(6.0f, 1.0f, strength);  // origin in meters per second
+    org[i].beta = 8.0f;
+  }
+  Vec3 o = pose.t, d = pose.Forward();
+  d = Vec3{dir[0].Filter(d.x, dt), dir[1].Filter(d.y, dt), dir[2].Filter(d.z, dt)}.Normalized();
+  o = {org[0].Filter(o.x, dt), org[1].Filter(o.y, dt), org[2].Filter(o.z, dt)};
+  history[head] = {time, o, d};
+  head = (head + 1) % kHistory;
+  count = std::min(count + 1, kHistory);
+
+  // 2) click steadying: pressing a trigger / closing the fingers moves the hand a bit. Take the
+  //    ray from just before and hold it while the hand stays (almost) still; further = drag.
+  if (pressed && !wasPressed) {
+    const XrTime want = time - static_cast<XrTime>(Lerp(0.03f, 0.13f, strength) * 1e9f);
+    const Sample* pick = nullptr;
+    for (int i = 0; i < count; ++i) {  // oldest sample that is still newer than `want`
+      const auto& s = history[(head - 1 - i + kHistory) % kHistory];
+      if (s.time < want) break;
+      pick = &s;
+    }
+    lockOrigin = pick ? pick->origin : o;
+    lockDir = pick ? pick->dir : d;
+    locked = true;
+    blend = 0.0f;
+  }
+  const float breakDeg = Lerp(1.0f, 4.5f, strength);
+  if (!pressed) {
+    locked = false;
+    blend = 1.0f;
+  } else if (locked && d.Dot(lockDir) < std::cos(breakDeg * 0.0174532925f)) {
+    locked = false;  // dragging: ease over to the live ray
+  }
+  wasPressed = pressed;
+  if (!locked && blend < 1.0f) blend = std::min(1.0f, blend + dt / kLockEaseSec);
+  if (blend < 1.0f) {
+    o = lockOrigin + (o - lockOrigin) * blend;
+    d = (lockDir + (d - lockDir) * blend).Normalized();
+  }
+  // turn the original pose onto the steadied direction (shortest arc): keeps the roll, which
+  // grabbing a window uses
+  const Vec3 raw = pose.Forward();
+  const Vec3 axis = raw.Cross(d);
+  const float w = 1.0f + raw.Dot(d);
+  if (w > 1e-4f) {
+    const float n = std::sqrt(axis.Dot(axis) + w * w);
+    const Quat q{axis.x / n, axis.y / n, axis.z / n, w / n};
+    Pose rot = Pose::FromQuat(q, {});
+    pose.t = {};
+    pose = rot * pose;
+  } else {
+    pose = Pose::LookRotation({}, d);  // exactly opposite (cannot really happen)
+  }
+  pose.t = o;
+}
+
 bool SessionInput::UpdateController(int h, XrSpace base, XrTime time, PointerState& p) {
   if (!actions_->Attached(session_) || aimSpaces_[h] == XR_NULL_HANDLE) return false;
   XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};
@@ -268,52 +336,6 @@ bool SessionInput::UpdateHand(int h, XrSpace base, XrTime time, const Pose& head
   float pinchDist = (pos(XR_HAND_JOINT_THUMB_TIP_EXT) - pos(XR_HAND_JOINT_INDEX_TIP_EXT)).Length();
   pinch_[h] = pinch_[h] ? pinchDist < 0.035f : pinchDist < 0.018f;
 
-  // 1) filter: hand tracking jitters by a few mm, which the long ray turns into centimeters
-  HandRay& r = rays_[h];
-  const float dt = r.last ? static_cast<float>(time - r.last) * 1e-9f : 0.0f;
-  if (r.last && (dt <= 0.0f || dt > 0.25f)) r.Reset();  // tracking gap: start fresh
-  r.last = time;
-  if (!r.dir[0].init)
-    for (int i = 0; i < 3; ++i) {
-      r.dir[i].minCutoff = 0.7f;  // unit vector per second
-      r.dir[i].beta = 4.0f;
-      r.org[i].minCutoff = 1.5f;  // meters per second
-      r.org[i].beta = 8.0f;
-    }
-  dir = Vec3{r.dir[0].Filter(dir.x, dt), r.dir[1].Filter(dir.y, dt), r.dir[2].Filter(dir.z, dt)}.Normalized();
-  knuckle = {r.org[0].Filter(knuckle.x, dt), r.org[1].Filter(knuckle.y, dt), r.org[2].Filter(knuckle.z, dt)};
-  r.history[r.head] = {time, knuckle, dir};
-  r.head = (r.head + 1) % HandRay::kHistory;
-  r.count = std::min(r.count + 1, HandRay::kHistory);
-
-  // 2) pinch: take the ray from just before the fingers started closing and hold it while the
-  //    hand stays (almost) still, so a click hits what was aimed at; moving further = drag
-  if (pinch_[h] && !r.wasPinched) {
-    const XrTime want = time - static_cast<XrTime>(kPinchRewindSec * 1e9f);
-    const HandRay::Sample* pick = nullptr;
-    for (int i = 0; i < r.count; ++i) {  // oldest sample that is still newer than `want`
-      const auto& s = r.history[(r.head - 1 - i + HandRay::kHistory) % HandRay::kHistory];
-      if (s.time < want) break;
-      pick = &s;
-    }
-    r.lockOrigin = pick ? pick->origin : knuckle;
-    r.lockDir = pick ? pick->dir : dir;
-    r.locked = true;
-    r.blend = 0.0f;
-  }
-  if (!pinch_[h]) {
-    r.locked = false;
-    r.blend = 1.0f;
-  } else if (r.locked && dir.Dot(r.lockDir) < std::cos(kLockBreakDeg * 0.0174532925f)) {
-    r.locked = false;  // dragging: ease over to the live ray
-  }
-  r.wasPinched = pinch_[h];
-  if (!r.locked && r.blend < 1.0f) r.blend = std::min(1.0f, r.blend + dt / kLockEaseSec);
-  if (r.blend < 1.0f) {
-    knuckle = r.lockOrigin + (knuckle - r.lockOrigin) * r.blend;
-    dir = (r.lockDir + (dir - r.lockDir) * r.blend).Normalized();
-  }
-
   p.pose = Pose::LookRotation(knuckle, dir);
   p.isHand = true;
   p.grab = pinch_[h];
@@ -323,14 +345,13 @@ bool SessionInput::UpdateHand(int h, XrSpace base, XrTime time, const Pose& head
 void SessionInput::Update(XrSpace base, XrTime time, const Pose& head, bool headValid) {
   for (int h = 0; h < 2; ++h) {
     PointerState p;
-    if (UpdateController(h, base, time, p)) {
+    if (UpdateController(h, base, time, p) || (headValid && UpdateHand(h, base, time, head, p))) {
       p.valid = true;
-    } else if (headValid && UpdateHand(h, base, time, head, p)) {
-      p.valid = true;
+      steady_[h].Apply(smoothing_, time, p.grab || p.select, p.pose);
     } else {
       p = {};
       pinch_[h] = grabLatch_[h] = selectLatch_[h] = false;
-      rays_[h].Reset();
+      steady_[h].Reset();
     }
     pointers_[h] = p;
   }

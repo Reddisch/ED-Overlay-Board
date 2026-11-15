@@ -75,6 +75,7 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       lookToShow = s.value("lookToShow", lookToShow);
       lookMarginDeg = s.value("lookMarginDeg", lookMarginDeg);
       sharpness = s.value("sharpness", sharpness);
+      pointerSmoothing = s.value("pointerSmoothing", pointerSmoothing);
       menuWidth = s.value("menuWidth", menuWidth);
       language = s.value("language", language);
       perShipLayouts = s.value("perShipLayouts", perShipLayouts);
@@ -177,6 +178,7 @@ bool AppConfig::Save() {
   s["lookToShow"] = lookToShow;
   s["lookMarginDeg"] = Round(lookMarginDeg, 0.1);
   s["sharpness"] = Round(sharpness, 0.01);
+  s["pointerSmoothing"] = Round(pointerSmoothing, 0.01);
   s["menuWidth"] = Round(menuWidth, 0.001);
   if (!language.empty()) s["language"] = language;
   s["perShipLayouts"] = perShipLayouts;

@@ -12,9 +12,11 @@
   CRT power-on / power-off, a short blip without effect). Settings `showSoundVolume` (0 = off) and
   `showSoundOnLook` (also when looking at / away, off by default); preview when choosing an effect.
   Sounds are now mixed (waveOut), so a click no longer cuts off another sound. Only the app changes
-- Hand tracking: steadier pointer ray (adaptive "One Euro" filter: smooth while aiming, little lag
-  when moving fast) and pinch steadying: a pinch uses the ray from ~100 ms before the fingers closed and
-  holds it until the hand moves more than ~3°, so clicks land where you aimed. Layer change (restart Elite)
+- Pointer smoothing for controllers and hand tracking (setting `pointerSmoothing`, 0-1, default 0.5,
+  slider in *General*): adaptive "One Euro" filter (calm while aiming, little lag when moving fast) and
+  click steadying: a trigger press / pinch uses the ray from just before it and holds it until the hand
+  moves a few degrees, so clicks land where you aimed. Also helps with Virtual Desktop, which turns
+  hand tracking into simulated controllers. IPC v8: restart the app and Elite
 
 ## 0.5.0
 

@@ -256,6 +256,7 @@ void OverlaySession::SyncIpc() {
   pushPullSpeed_ = s->pushPullSpeed;
   lookMarginDeg_ = s->lookMarginDeg;
   sharpness_ = s->sharpness > 0.1f ? s->sharpness : 1.0f;
+  input_.SetSmoothing(s->pointerSmoothing);
 
   s->layerHeartbeat = now;
   s->layerPid = GetCurrentProcessId();

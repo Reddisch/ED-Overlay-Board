@@ -80,6 +80,7 @@ struct AppConfig {
   float swipeSpeed = 1.0f;     // drag-to-scroll: wheel notches per ~60 pixels of dragging
   bool lookToShow = true;      // windows only appear when looking towards them
   float lookMarginDeg = 10.0f; // extra angle around a window that still counts as looking at it
+  float pointerSmoothing = 0.5f;  // VR pointer: 0 = raw, 1 = strongest smoothing (for hand tracking)
   float sharpness = 1.0f;      // 1 = smooth (anti-aliased), 1.5-2 = sharper but may shimmer
   float menuWidth = 0.40f;     // VR quick menu width (m)
   std::string language;        // "de", "en" or "" = Windows display language

@@ -16,12 +16,12 @@
 namespace ipc {
 
 constexpr uint32_t kMagic = 0x424F4445;  // "EDOB"
-constexpr uint32_t kVersion = 7;
+constexpr uint32_t kVersion = 8;
 constexpr int kMaxWindows = 16;
 constexpr uint64_t kHeartbeatTimeoutMs = 3000;
 
-inline constexpr wchar_t kMappingName[] = L"Local\\EDOverlayBoard.State.v7";
-inline constexpr wchar_t kMutexName[] = L"Local\\EDOverlayBoard.Mutex.v7";
+inline constexpr wchar_t kMappingName[] = L"Local\\EDOverlayBoard.State.v8";
+inline constexpr wchar_t kMutexName[] = L"Local\\EDOverlayBoard.Mutex.v8";
 
 // Name of a shared D3D11 texture (NT handle + keyed mutex, BGRA8). `generation` is unique
 // within one app instance, so a name is never reused while the layer may still hold it.
@@ -109,6 +109,7 @@ struct State {
   float pushPullSpeed;
   float lookMarginDeg;  // extra angle around a window that still counts as "looking at it"
   float sharpness;      // 1 = texture matched to display pixels (no shimmer), higher = sharper
+  float pointerSmoothing;  // 0 = raw pointer ray, 1 = strongest smoothing + click steadying
 
   // layer -> app
   uint64_t layerHeartbeat;

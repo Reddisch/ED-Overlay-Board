@@ -674,6 +674,20 @@ void SettingsWindow::DrawGeneralTab() {
   ImGui::SeparatorText(T("Bedienung", "Controls"));
   c |= ImGui::Checkbox(T("Vibration (Controller)###haptics", "Vibration (controllers)###haptics"), &cfg.haptics);
   {
+    float pct = cfg.pointerSmoothing * 100.0f;
+    if (ImGui::SliderFloat(T("Zeiger-Glättung###smooth", "Pointer smoothing###smooth"), &pct, 0.0f, 100.0f,
+                           pct < 0.5f ? T("aus", "off") : "%.0f %%")) {
+      cfg.pointerSmoothing = pct / 100.0f;
+      c = true;
+    }
+    ImGui::SetItemTooltip("%s", T("Beruhigt den Zeigestrahl und hält ihn beim Klicken kurz fest. Höher = ruhiger, aber "
+                                  "träger. Für Handtracking (auch von Virtual Desktop simulierte Controller) 50-80 %, "
+                                  "für echte Controller wenig oder aus.",
+                                  "Calms the pointer ray and holds it briefly while clicking. Higher = calmer but "
+                                  "slower. For hand tracking (also controllers simulated by Virtual Desktop) 50-80 %, "
+                                  "for real controllers little or off."));
+  }
+  {
     float pct = cfg.clickVolume * 100.0f;
     if (ImGui::SliderFloat(T("Klickgeräusch (Lautstärke)###clickvol", "Click sound (volume)###clickvol"), &pct, 0.0f,
                            100.0f, pct < 0.5f ? T("aus", "off") : "%.0f %%")) {

@@ -61,17 +61,19 @@ struct OneEuro {
   float Filter(float value, float dt);
 };
 
-// Hand tracking ray: filtered, and steadied while pinching so a click lands where you aimed.
-struct HandRay {
+// Pointer ray steadying (controllers and hand tracking): filtered, and held while a button /
+// pinch goes down, so a click lands where you aimed.
+struct RaySteady {
   OneEuro dir[3], org[3];
   XrTime last = 0;
-  static constexpr int kHistory = 16;  // ring buffer of recent filtered rays (~180 ms at 90 Hz)
+  static constexpr int kHistory = 24;  // ring buffer of recent filtered rays (~200 ms at 120 Hz)
   struct Sample { XrTime time; Vec3 origin, dir; } history[kHistory]{};
   int head = 0, count = 0;
-  bool wasPinched = false, locked = false;
+  bool wasPressed = false, locked = false;
   Vec3 lockOrigin, lockDir;
   float blend = 1.0f;  // 0 = lock ray, 1 = live ray (after the lock broke: eases back to live)
-  void Reset() { *this = HandRay{}; }
+  void Reset() { *this = RaySteady{}; }
+  void Apply(float strength, XrTime time, bool pressed, Pose& pose);
 };
 
 // Session level: action spaces + hand trackers, produces PointerStates every frame.
@@ -82,6 +84,7 @@ class SessionInput {
   void Update(XrSpace base, XrTime time, const Pose& head, bool headValid);
   const PointerState& Pointer(int h) const { return pointers_[h]; }
   void Haptic(int h, float seconds, float amplitude);
+  void SetSmoothing(float s) { smoothing_ = s; }
   bool HandTracking() const { return handTrackers_[0] != XR_NULL_HANDLE; }
 
  private:
@@ -95,6 +98,7 @@ class SessionInput {
   XrHandTrackerEXT handTrackers_[2]{XR_NULL_HANDLE, XR_NULL_HANDLE};
   PointerState pointers_[2];
   bool pinch_[2]{};
-  HandRay rays_[2];
+  RaySteady steady_[2];
+  float smoothing_ = 0.5f;
   bool grabLatch_[2]{}, selectLatch_[2]{};
 };
