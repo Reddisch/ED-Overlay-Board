@@ -252,7 +252,7 @@ void App::Tick() {
     bool changed = false;
     ID3D11Texture2D* tex = s.source ? s.source->Update(changed) : nullptr;
     s.pending |= changed;
-    bool shown = s.cfg->visible && (!allHidden_ || s.internal);
+    bool shown = WindowOn(s);
     if (tex && s.pending && shown) s.pending = !Publish(s, tex);
   }
 
@@ -267,11 +267,16 @@ void App::Tick() {
 // what is drawn (it also knows about looking at / away), so its gaze info is the source.
 // Only changes caused by the user (hotkey, menu, settings, ship layout) are heard, plus - if
 // switched on - appearing / disappearing by looking at a window.
+bool App::WindowOn(const Slot& s) const {
+  if (s.internal) return s.cfg->visible;
+  return s.cfg->visible && !allHidden_ && !HeldBack();
+}
+
 void App::UpdateShowSounds() {
   sounds_.Update();
   const uint64_t now = GetTickCount64();
   for (auto& s : slots_) {
-    const int want = s.cfg->visible && (!allHidden_ || s.internal) ? 1 : 0;
+    const int want = WindowOn(s) ? 1 : 0;
     if (s.want >= 0 && want != s.want) s.wantChangedAt = now;
     s.want = want;
   }
@@ -378,7 +383,7 @@ void App::SyncShared() {
     const WindowConfig& c = *s.cfg;
     strncpy_s(w.name, c.name.c_str(), _TRUNCATE);
     w.active = 1;
-    w.visible = c.visible;
+    w.visible = s.internal ? c.visible : c.visible && !HeldBack();
     w.locked = c.locked;
     w.opaque = c.type != "images";
     w.lookToShow = s.internal ? 0 : (c.lookToShow < 0 ? cfg_.lookToShow : c.lookToShow == 1);
@@ -541,7 +546,7 @@ void App::StartKeyboard() {
   auto usable = [&](int i) {
     if (i < 0 || i >= static_cast<int>(slots_.size())) return false;
     const Slot& s = slots_[static_cast<size_t>(i)];
-    return !s.internal && s.mouse && s.cfg->visible && !allHidden_ && s.source && s.source->KeyboardTarget();
+    return !s.internal && s.mouse && WindowOn(s) && s.source && s.source->KeyboardTarget();
   };
   if (!vrStatus_.connected) {  // at the desktop you can type into the program directly
     Log("Keyboard: only available while the game runs in VR");
@@ -587,7 +592,7 @@ void App::CheckKeyboard() {
     return;
   }
   const Slot& s = slots_[static_cast<size_t>(keyboardSlot_)];
-  HWND target = s.cfg->visible && !allHidden_ && s.mouse && s.source ? s.source->KeyboardTarget() : nullptr;
+  HWND target = WindowOn(s) && s.mouse && s.source ? s.source->KeyboardTarget() : nullptr;
   if (!target) {
     StopKeyboard("window hidden or closed");
     return;

@@ -10,6 +10,7 @@
 // "Saved Games\Frontier Developments\Elite Dangerous":
 //   - Journal.*.log (newest one): ship type from LoadGame / Loadout / ShipyardSwap / ShipyardNew
 //   - Status.json: in SRV / fighter / on foot / taxi
+//   - in game or not (journal: LoadGame = in; new journal, main menu music, Shutdown = out)
 // Result: a layout key such as "krait_mkii", "srv", "fighter", "onfoot", "taxi" ("" = unknown).
 class ShipTracker {
  public:
@@ -19,6 +20,8 @@ class ShipTracker {
   // cheap to call every frame (checks the files about once per second); returns the current key
   const std::string& Poll();
   const std::string& Current() const { return current_; }
+  bool InGame() const { return inGame_; }  // commander loaded (not main menu / loading / game closed)
+  bool Available() const { return !journal_.empty(); }  // a journal was found at all
   const std::filesystem::path& Folder() const { return dir_; }
 
   // "krait_mkii" -> "Krait Mk II", "srv" -> "SRV", ...
@@ -46,4 +49,6 @@ class ShipTracker {
   std::string ship_;     // ship type from the journal, lower case
   std::string vehicle_;  // from Status.json: "srv", "fighter", "onfoot", "taxi" or "" (ship / unknown)
   std::string current_;
+  bool inGame_ = false;
+  bool loggedInGame_ = false;
 };

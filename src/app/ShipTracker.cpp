@@ -118,14 +118,22 @@ void ShipTracker::ReadJournal() {
 }
 
 void ShipTracker::HandleLine(const std::string& line) {
-  // cheap pre-filter: only a few events tell which ship we are in
-  static const char* const kEvents[] = {"\"LoadGame\"", "\"Loadout\"", "\"ShipyardSwap\"", "\"ShipyardNew\""};
+  // cheap pre-filter: only a few events tell which ship we are in / whether we are in the game
+  static const char* const kEvents[] = {"\"LoadGame\"",    "\"Loadout\"", "\"ShipyardSwap\"", "\"ShipyardNew\"",
+                                        "\"Fileheader\"", "\"MainMenu\"", "\"Shutdown\""};
   if (std::none_of(std::begin(kEvents), std::end(kEvents),
                    [&](const char* e) { return line.find(e) != std::string::npos; }))
     return;
   try {
     auto j = nlohmann::json::parse(line);
     const std::string ev = j.value("event", "");
+    // game start (journal part 1, a continued journal keeps the state), main menu, game closed
+    if ((ev == "Fileheader" && j.value("part", 1) == 1) || ev == "Shutdown" ||
+        (ev == "Music" && j.value("MusicTrack", "") == "MainMenu")) {
+      inGame_ = false;
+      return;
+    }
+    if (ev == "LoadGame") inGame_ = true;
     const char* field = ev == "LoadGame" || ev == "Loadout" ? "Ship"
                         : ev == "ShipyardSwap" || ev == "ShipyardNew" ? "ShipType"
                                                                        : nullptr;
@@ -169,6 +177,10 @@ void ShipTracker::ReadStatus() {
 }
 
 void ShipTracker::Update() {
+  if (inGame_ != loggedInGame_) {
+    loggedInGame_ = inGame_;
+    Log("Ship tracking: {}", inGame_ ? "in the game" : "not in the game (main menu / loading / closed)");
+  }
   std::string key = vehicle_.empty() ? ship_ : vehicle_;
   if (key == current_) return;
   current_ = key;

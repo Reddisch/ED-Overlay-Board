@@ -196,6 +196,7 @@ Alles lässt sich im Einstellungsfenster einstellen; die Datei muss man nicht vo
 | `showCursor` | Zeiger-Punkt auf den Fenstern anzeigen |
 | `haptics` | Vibration der Controller |
 | `clickVolume` | Lautstärke des Klickgeräuschs, 0 = aus |
+| `onlyInGame` | `true` (Standard): Fenster erst im Spiel (nicht im Hauptmenü / beim Laden); das VR-Menü geht immer |
 | `headAim` | `true`: mit dem Kopf zielen (Blickmitte), Trigger / Kneifen klickt, Fenster greifen / verschieben weiter mit der Hand |
 | `pointerSmoothing` | VR-Zeiger: 0 = roh, 1 = stärkste Glättung + Strahl beim Klicken festhalten (Handtracking: 0.5-0.8) |
 | `showSoundVolume` | Lautstärke des Ein-/Ausblendgeräuschs (passend zum Effekt des Fensters), 0 = aus |

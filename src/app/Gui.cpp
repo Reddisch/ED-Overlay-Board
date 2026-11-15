@@ -750,6 +750,19 @@ void SettingsWindow::DrawGeneralTab() {
 
 void SettingsWindow::DrawShipLayouts() {
   auto& cfg = app_.Config();
+  ImGui::SeparatorText(T("Spiel", "Game"));
+  if (ImGui::Checkbox(T("Fenster erst einblenden, wenn man im Spiel ist###ingame",
+                        "Show windows only once in the game###ingame"),
+                      &cfg.onlyInGame))
+    app_.ConfigChanged(false);
+  ImGui::SetItemTooltip("%s", T("Im Hauptmenü und beim Laden bleiben die Fenster aus (das VR-Menü nicht). Erkannt über "
+                                "das Journal von Elite (LoadGame / Hauptmenü / Beenden).",
+                                "In the main menu and while loading the windows stay off (not the VR menu). Detected "
+                                "from the Elite journal (LoadGame / main menu / shutdown)."));
+  ImGui::TextDisabled(T("Zustand: %s", "State: %s"),
+                      app_.InGame() ? T("im Spiel", "in the game")
+                                    : T("nicht im Spiel (Hauptmenü, Laden oder beendet)",
+                                        "not in the game (main menu, loading or closed)"));
   ImGui::SeparatorText(T("Layout pro Schiff", "Layout per ship"));
   if (ImGui::Checkbox(T("Fensterpositionen und Sichtbarkeit pro Schiffstyp merken###pership",
                         "Remember window positions and visibility per ship type###pership"),
@@ -1044,6 +1057,8 @@ void VrMenu::Draw() {
 
   ImGui::SeparatorText(T("Anzeige", "Display"));
   if (ImGui::Checkbox(T("Nur beim Hinsehen anzeigen###look", "Only show when looking at it###look"), &cfg.lookToShow))
+    app_.ConfigChanged(false);
+  if (ImGui::Checkbox(T("Fenster erst im Spiel###ingame", "Windows only in the game###ingame"), &cfg.onlyInGame))
     app_.ConfigChanged(false);
   if (ImGui::Checkbox(T("Mit dem Kopf zielen###headaim", "Aim with the head###headaim"), &cfg.headAim))
     app_.ConfigChanged(false);

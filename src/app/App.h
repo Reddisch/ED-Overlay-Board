@@ -65,6 +65,8 @@ class App {
   // per-ship layouts: ship type / vehicle detected from the game journal ("" = unknown) and
   // the layout currently in use ("" = per-ship layouts off or nothing detected yet)
   const std::string& CurrentShip() const { return ships_.Current(); }
+  bool InGame() const { return ships_.InGame(); }
+  bool HeldBack() const { return cfg_.onlyInGame && ships_.Available() && !ships_.InGame(); }
   const std::string& ActiveLayout() const { return activeLayout_; }
   void DeleteLayout(const std::string& ship);
 
@@ -103,6 +105,7 @@ class App {
   bool Publish(Slot& s, ID3D11Texture2D* src);
   void SyncShared();
   void UpdateShowSounds();
+  bool WindowOn(const Slot& s) const;  // visible by config, not hidden by "hide all" / not in the game
   void UpdateLearning();
   void StartKeyboard();
   void StopKeyboard(const char* reason);

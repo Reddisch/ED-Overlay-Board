@@ -21,6 +21,10 @@
   the center of the view, trigger / pinch clicks; grabbing and moving windows still uses the hand.
   The dot shows while a hand / controller is tracked. The VR menu then holds still while you look
   around on it and only catches up after looking clearly beside it. IPC v9: restart the app and Elite
+- Windows only in the game (setting `onlyInGame`, on by default, checkbox in *General* and in the VR
+  menu): in the main menu and while loading only the VR menu is shown. From the journal: `LoadGame` =
+  in the game; a new journal, main menu music or `Shutdown` = not. The windows appear with their show
+  effect and sound. Only the app changes
 
 ## 0.5.0
 
