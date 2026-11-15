@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0
 
 - Layout per ship type: window positions, size and visibility are remembered per ship type
   (and separately for SRV, fighter, on foot and taxi). The ship comes from the Elite journal
@@ -25,6 +25,7 @@
   menu): in the main menu and while loading only the VR menu is shown. From the journal: `LoadGame` =
   in the game; a new journal, main menu music or `Shutdown` = not. The windows appear with their show
   effect and sound. Only the app changes
+- App and layer must both be 0.6.0 (IPC v9): restart the app and Elite after updating
 
 ## 0.5.0
 
