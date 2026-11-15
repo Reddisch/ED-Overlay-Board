@@ -257,6 +257,8 @@ void OverlaySession::SyncIpc() {
   lookMarginDeg_ = s->lookMarginDeg;
   sharpness_ = s->sharpness > 0.1f ? s->sharpness : 1.0f;
   input_.SetSmoothing(s->pointerSmoothing);
+  pointerSmoothing_ = s->pointerSmoothing;
+  headAim_ = s->headAim != 0;
 
   s->layerHeartbeat = now;
   s->layerPid = GetCurrentProcessId();
@@ -355,7 +357,16 @@ void OverlaySession::UpdateHeadFollow(float dt) {
       w.followValid = true;
     } else {
       const float angle = std::acos(std::clamp(w.followDir.Dot(forward), -1.0f, 1.0f)) * kRadToDeg;
-      if (angle > kDeadzoneDeg) {
+      bool move = angle > kDeadzoneDeg;
+      if (headAim_) {
+        // aiming with the head: the menu must hold still while looking around on it, and only
+        // catches up (all the way back to the middle) after looking clearly beside it
+        const float half = std::atan(0.5f * std::min(w.width, std::max(w.Height(), 0.05f)) / kDistance) * kRadToDeg;
+        if (angle > half + 4.0f) w.following = true;
+        if (angle < kDeadzoneDeg) w.following = false;
+        move = w.following;
+      }
+      if (move) {
         const float a = 1.0f - std::exp(-dt / kFollowSeconds);
         w.followDir = (w.followDir + (forward - w.followDir) * a).Normalized();
       }
@@ -489,8 +500,24 @@ bool OverlaySession::Intersect(const Win& w, const Pose& ray, float margin, floa
 void OverlaySession::UpdateInteraction(float dt) {
   for (auto& w : windows_) w.pointerActive = false;
 
+  // Head aim: one ray from the view center for both hands; the hands only press (and grab / move).
+  const bool headAim = headAim_ && headValid_;
+  Pose headRay = head_;
+  if (headAim) {
+    bool pressed = false;
+    for (int h = 0; h < 2; ++h) {
+      const PointerState& q = input_.Pointer(h);
+      pressed |= q.valid && (q.grab || q.select);
+    }
+    // the head is far steadier than a hand: half the smoothing, but still hold the ray on a click
+    headSteady_.Apply(std::max(0.2f, pointerSmoothing_ * 0.5f), static_cast<XrTime>(time_ * 1e9), pressed, headRay);
+  } else {
+    headSteady_.Reset();
+  }
+
   for (int h = 0; h < 2; ++h) {
     const PointerState& p = input_.Pointer(h);
+    const Pose& aim = headAim ? headRay : p.pose;  // pointing (hover, click, mouse); grabbing uses p.pose
     const bool grabNow = p.valid && p.grab, selNow = p.valid && p.select;
     const bool grabPressed = grabNow && !prevGrab_[h], selPressed = selNow && !prevSelect_[h];
     prevGrab_[h] = grabNow;
@@ -505,7 +532,7 @@ void OverlaySession::UpdateInteraction(float dt) {
       Win& w = windows_[idx];
       const bool held = mouseByPinch_[h] ? grabNow : selNow;
       Vec3 local;
-      if (p.valid && PointOnPlane(w, p.pose, local)) {
+      if (p.valid && PointOnPlane(w, aim, local)) {
         w.pointerActive = true;
         w.pointerX = std::clamp(local.x / w.width + 0.5f, 0.0f, 1.0f);
         w.pointerY = std::clamp(0.5f - local.y / std::max(w.Height(), 1e-3f), 0.0f, 1.0f);
@@ -526,7 +553,7 @@ void OverlaySession::UpdateInteraction(float dt) {
         if (!Shown(i)) continue;  // only windows you can see can be pointed at / grabbed
         float d;
         Vec3 local;
-        if (!Intersect(w, p.pose, w.locked || w.interactive ? 0.0f : GrabMargin(w), d, local)) continue;
+        if (!Intersect(w, aim, w.locked || w.interactive ? 0.0f : GrabMargin(w), d, local)) continue;
         const bool inside = std::fabs(local.x) <= w.width * 0.5f && std::fabs(local.y) <= w.Height() * 0.5f;
         // a hit on a window itself beats a hit on the (invisible) margin of another one
         if (hit.window < 0 || (inside && !hit.inside) || (inside == hit.inside && d < hit.distance))
@@ -991,6 +1018,7 @@ void OverlaySession::BuildLayers(const XrFrameEndInfo* info) {
     for (int h = 0; h < 2; ++h) {
       const Hover& hv = hover_[h];
       if (hv.window < 0 || grabs_[h].window >= 0) continue;
+      if (h == 1 && headAim_ && hover_[0].window == hv.window && grabs_[0].window < 0) continue;  // same dot
       Vec3 at = hv.local;
       at.z += 0.004f;
       addQuad(cursor_, World(windows_[hv.window]) * Pose::Translation(at), kCursorSize, kCursorSize, true);

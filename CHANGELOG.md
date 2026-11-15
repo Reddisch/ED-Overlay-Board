@@ -17,6 +17,10 @@
   click steadying: a trigger press / pinch uses the ray from just before it and holds it until the hand
   moves a few degrees, so clicks land where you aimed. Also helps with Virtual Desktop, which turns
   hand tracking into simulated controllers. IPC v8: restart the app and Elite
+- Aim with the head (setting `headAim`, checkbox in *General* and in the VR menu): the pointer follows
+  the center of the view, trigger / pinch clicks; grabbing and moving windows still uses the hand.
+  The dot shows while a hand / controller is tracked. The VR menu then holds still while you look
+  around on it and only catches up after looking clearly beside it. IPC v9: restart the app and Elite
 
 ## 0.5.0
 

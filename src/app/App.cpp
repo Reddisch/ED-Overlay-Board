@@ -369,6 +369,7 @@ void App::SyncShared() {
   st->lookMarginDeg = std::clamp(cfg_.lookMarginDeg, 0.0f, 90.0f);
   st->sharpness = std::clamp(cfg_.sharpness, 0.5f, 4.0f);
   st->pointerSmoothing = std::clamp(cfg_.pointerSmoothing, 0.0f, 1.0f);
+  st->headAim = cfg_.headAim;
   st->windowCount = static_cast<uint32_t>(slots_.size());
 
   for (size_t i = 0; i < slots_.size(); ++i) {

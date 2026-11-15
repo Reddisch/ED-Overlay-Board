@@ -673,6 +673,13 @@ void SettingsWindow::DrawGeneralTab() {
   c |= ImGui::Checkbox(T("Zeiger-Punkt anzeigen###cursor", "Show pointer dot###cursor"), &cfg.showCursor);
   ImGui::SeparatorText(T("Bedienung", "Controls"));
   c |= ImGui::Checkbox(T("Vibration (Controller)###haptics", "Vibration (controllers)###haptics"), &cfg.haptics);
+  c |= ImGui::Checkbox(T("Mit dem Kopf zielen###headaim", "Aim with the head###headaim"), &cfg.headAim);
+  ImGui::SetItemTooltip("%s", T("Der Zeiger folgt der Blickmitte, Trigger / Kneifen klickt. Fenster greifen und "
+                                "verschieben geht weiter mit der Hand. Der Punkt erscheint, sobald eine Hand bzw. ein "
+                                "Controller erkannt wird.",
+                                "The pointer follows the center of the view, trigger / pinch clicks. Grabbing and "
+                                "moving windows still works with the hand. The dot appears as soon as a hand or "
+                                "controller is tracked."));
   {
     float pct = cfg.pointerSmoothing * 100.0f;
     if (ImGui::SliderFloat(T("Zeiger-Glättung###smooth", "Pointer smoothing###smooth"), &pct, 0.0f, 100.0f,
@@ -1037,6 +1044,8 @@ void VrMenu::Draw() {
 
   ImGui::SeparatorText(T("Anzeige", "Display"));
   if (ImGui::Checkbox(T("Nur beim Hinsehen anzeigen###look", "Only show when looking at it###look"), &cfg.lookToShow))
+    app_.ConfigChanged(false);
+  if (ImGui::Checkbox(T("Mit dem Kopf zielen###headaim", "Aim with the head###headaim"), &cfg.headAim))
     app_.ConfigChanged(false);
   const float halfW = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) / 2;
   ImGui::SetNextItemWidth(halfW);

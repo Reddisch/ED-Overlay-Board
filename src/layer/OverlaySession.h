@@ -58,6 +58,7 @@ class OverlaySession {
     bool summonPending = false;
     bool followValid = false;  // VR menu: followDir is set (reset while hidden -> snaps in front)
     Vec3 followDir;            // smoothed view direction the VR menu sits on
+    bool following = false;    // head aim: catching up with the view (looked clearly beside the menu)
     bool pointerActive = false;
     float pointerX = 0, pointerY = 0;
     uint32_t pendingDown = 0, pendingUp = 0;
@@ -188,6 +189,9 @@ class OverlaySession {
   float scaleSpeed_ = 1.0f, pushPullSpeed_ = 0.75f;
   float lookMarginDeg_ = 10.0f;
   float sharpness_ = 1.0f;
+  bool headAim_ = false;
+  float pointerSmoothing_ = 0.5f;
+  RaySteady headSteady_;  // head aim: light smoothing + click steadying
   float pixelsPerRadian_ = 0.0f;  // display density at the view center, from the game's projection layer
   DXGI_FORMAT mipSrvFormat_ = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
 

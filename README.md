@@ -195,6 +195,7 @@ Everything can be set in the settings window; you do not need to edit the file b
 | `showCursor` | show the pointer dot on the windows |
 | `haptics` | controller vibration |
 | `clickVolume` | click sound volume, 0 = off |
+| `headAim` | `true`: aim with the head (center of the view), trigger / pinch clicks, the hand still grabs / moves windows |
 | `pointerSmoothing` | VR pointer: 0 = raw, 1 = strongest smoothing + holding the ray while clicking (hand tracking: 0.5-0.8) |
 | `showSoundVolume` | volume of the show / hide sound (matches the window's effect), 0 = off |
 | `showSoundOnLook` | `true`: that sound also plays when a window appears / disappears by looking at it / away |
