@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
 
 - Spectator window for streaming / recording (OBS): the overlay windows reach the headset as separate
   quad layers that only the VR runtime composes, so Elite's mirror window (and OBS) never showed them.
