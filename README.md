@@ -30,7 +30,7 @@ tracking; recenter with a keyboard hotkey or a HOTAS/joystick button. Works with
 - **Gaze dependent:** windows only appear (and can only be used) when you look towards them
 - **Gaze information for other programs:** which window you are looking at, in the read-only shared memory
   `Local\EDOverlayBoard.Gaze.v1` (`src/common/GazeIpc.h`) – e.g. for the joystick control of
-  [ED Road to Riches](https://github.com/Reddisch/ED-Road-to-Riches)
+  [ED Road to Riches](https://github.com/Reddisch/ED-Road-to-Riches) and [ED Webradio](https://github.com/Reddisch/ED-Webradio)
 - **Settings window** (tray icon): add/edit windows, pick a program from a list, "learn" keyboard and
   joystick buttons by pressing them – everything applies immediately
 - **VR menu** (e.g. Ctrl+Alt+M): windows on/off, recenter, lock, keyboard, sharpness, brightness,
@@ -45,6 +45,17 @@ tracking; recenter with a keyboard hotkey or a HOTAS/joystick button. Works with
 - **Layout per ship type:** window positions and visibility are remembered per ship (and for SRV, fighter,
   on foot, taxi) – the ship is read from the game journal
 - Layout is saved automatically, pointer cursor, frame when pointing at a window, haptics
+
+## Companion tools
+
+Programs made for being mirrored into the cockpit with ED Overlay Board (each with a window for VR and joystick
+control while you look at it):
+
+- **[ED Webradio](https://github.com/Reddisch/ED-Webradio)** – internet radio and remote for YouTube Music /
+  Spotify in the cockpit style, lowers the music while EDCoPilot or the game speaks. Window entry:
+  `"type": "window", "processName": "EDWebradio.exe", "titleContains": "Webradio VR"`
+- **[ED Road to Riches](https://github.com/Reddisch/ED-Road-to-Riches)** – Road to Riches routes from Spansh with
+  the next target copied to the clipboard. Window entry: `"titleContains": "Road to Riches VR"`
 
 ## How it works
 

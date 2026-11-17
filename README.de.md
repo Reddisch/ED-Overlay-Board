@@ -30,7 +30,7 @@ Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculu
 - **Blickabhängig:** Fenster erscheinen nur, wenn man in ihre Richtung schaut, und sind nur dann bedienbar
 - **Blickinformation für andere Programme:** welches Fenster gerade angesehen wird, im schreibgeschützten
   Shared Memory `Local\EDOverlayBoard.Gaze.v1` (`src/common/GazeIpc.h`) – z. B. für die Joystick-Steuerung von
-  [ED Road to Riches](https://github.com/Reddisch/ED-Road-to-Riches)
+  [ED Road to Riches](https://github.com/Reddisch/ED-Road-to-Riches) und [ED Webradio](https://github.com/Reddisch/ED-Webradio)
 - **Einstellungsfenster** (Tray-Icon): Fenster anlegen/bearbeiten, Programm aus Liste wählen, Tastatur- und
   Joystick-Tasten per Tastendruck „lernen“ – alles wirkt sofort
 - **VR-Menü** (z. B. Strg+Alt+M): Fenster ein/aus, Zentrieren, Sperren, Tastatur, Schärfe, Helligkeit,
@@ -45,6 +45,17 @@ Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculu
 - **Layout pro Schiffstyp:** Fensterpositionen und Sichtbarkeit werden pro Schiff gemerkt (und für SRV,
   Fighter, zu Fuß, Taxi) – das Schiff wird aus dem Journal des Spiels gelesen
 - Layout wird automatisch gespeichert, Zeiger-Cursor, Rahmen beim Anvisieren, Haptik
+
+## Passende Programme
+
+Programme, die fürs Spiegeln ins Cockpit mit ED Overlay Board gemacht sind (jeweils mit eigenem VR-Fenster und
+Joystick-Steuerung, solange man hinschaut):
+
+- **[ED Webradio](https://github.com/Reddisch/ED-Webradio)** – Internetradio und Fernbedienung für YouTube Music /
+  Spotify im Cockpit-Stil, senkt die Musik ab, während EDCoPilot oder das Spiel spricht. Fenster-Eintrag:
+  `"type": "window", "processName": "EDWebradio.exe", "titleContains": "Webradio VR"`
+- **[ED Road to Riches](https://github.com/Reddisch/ED-Road-to-Riches)** – Road-to-Riches-Routen von Spansh, das
+  nächste Ziel landet in der Zwischenablage. Fenster-Eintrag: `"titleContains": "Road to Riches VR"`
 
 ## Wie es funktioniert
 
