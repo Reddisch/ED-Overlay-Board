@@ -81,6 +81,10 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       menuWidth = s.value("menuWidth", menuWidth);
       language = s.value("language", language);
       perShipLayouts = s.value("perShipLayouts", perShipLayouts);
+      mirror = s.value("mirror", mirror);
+      mirrorWidth = s.value("mirrorWidth", mirrorWidth);
+      mirrorHeight = s.value("mirrorHeight", mirrorHeight);
+      mirrorZoom = s.value("mirrorZoom", mirrorZoom);
     }
 
     shipLayouts.clear();
@@ -186,6 +190,10 @@ bool AppConfig::Save() {
   s["menuWidth"] = Round(menuWidth, 0.001);
   if (!language.empty()) s["language"] = language;
   s["perShipLayouts"] = perShipLayouts;
+  s["mirror"] = mirror;
+  s["mirrorWidth"] = mirrorWidth;
+  s["mirrorHeight"] = mirrorHeight;
+  s["mirrorZoom"] = Round(mirrorZoom, 0.01);
 
   json ws = json::array();
   for (const auto& c : windows) {

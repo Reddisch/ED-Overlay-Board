@@ -44,6 +44,8 @@ tracking; recenter with a keyboard hotkey or a HOTAS/joystick button. Works with
   large sources such as 4K kneeboards). `settings.sharpness`: 1.0 = calm, 1.5–2 = sharper
 - **Layout per ship type:** window positions and visibility are remembered per ship (and for SRV, fighter,
   on foot, taxi) – the ship is read from the game journal
+- **Spectator window for OBS:** the game picture (left eye) with all overlay windows on top, as a desktop
+  window for streaming / recording – Elite's own mirror window cannot show them (see below)
 - Layout is saved automatically, pointer cursor, frame when pointing at a window, haptics
 
 ## Companion tools
@@ -206,6 +208,9 @@ Everything can be set in the settings window; you do not need to edit the file b
 | `showCursor` | show the pointer dot on the windows |
 | `haptics` | controller vibration |
 | `clickVolume` | click sound volume, 0 = off |
+| `mirror` | `true`: spectator window "ED Overlay Board - Mirror" with the game picture and the overlay windows (for OBS) |
+| `mirrorWidth` / `mirrorHeight` | size of the spectator picture in pixels (default 1920 x 1080) |
+| `mirrorZoom` | 1.0 = as wide as the game picture allows, larger = smaller section (less distorted edges) |
 | `onlyInGame` | `true` (default): windows only appear once in the game (not in the main menu / while loading); the VR menu always works |
 | `headAim` | `true`: aim with the head (center of the view), trigger / pinch clicks, the hand still grabs / moves windows |
 | `pointerSmoothing` | VR pointer: 0 = raw, 1 = strongest smoothing + holding the ray while clicking (hand tracking: 0.5-0.8) |
@@ -271,6 +276,18 @@ The mirrored window may be behind the game but must **not be minimized**.
   **Combinations** on one device: `"buttons": [5, 12]` (in the settings window: hold the buttons together,
   then release). If a button is bound alone and also in a combination, the single binding fires on
   release – and only if the combination was not used meanwhile (e.g. button 5 as a "shift" button).
+
+## Streaming / recording (OBS)
+
+The overlay windows are not part of the game's picture: the layer hands them to the VR runtime as
+separate layers, which only puts them on top in the headset. That is why they are missing from Elite's
+own mirror window and from an OBS capture of the game.
+
+For streaming, switch on **Settings → General → Spectator window**. The window
+"ED Overlay Board - Mirror" shows the left eye with all overlay windows (as in the headset, including the
+VR menu and the pointer). In OBS add a **Window Capture** of `[EDOverlayBoard.exe] ED Overlay Board - Mirror`
+(capture method "Windows 10"). The window may be covered by other windows, but it must not be minimized.
+Resolution and zoom are in the settings; closing the window switches it off.
 
 ## Troubleshooting
 

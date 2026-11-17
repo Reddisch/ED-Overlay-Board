@@ -9,6 +9,7 @@
 #include "Ipc.h"
 #include "JoystickManager.h"
 #include "KeyboardCapture.h"
+#include "MirrorWindow.h"
 #include "ShipTracker.h"
 
 #include <dxgi1_2.h>
@@ -69,6 +70,9 @@ class App {
   bool HeldBack() const { return cfg_.onlyInGame && ships_.Available() && !ships_.InGame(); }
   const std::string& ActiveLayout() const { return activeLayout_; }
   void DeleteLayout(const std::string& ship);
+
+  // spectator mirror for OBS: what the layer reports ("" = game not running)
+  std::string MirrorStatus() const;
 
   void OpenSettings();
   void Quit() { quit_ = true; }
@@ -141,6 +145,9 @@ class App {
   std::vector<Slot> slots_;
   std::unique_ptr<SettingsWindow> settings_;
   std::unique_ptr<VrMenu> vrMenu_;
+  std::unique_ptr<MirrorWindow> mirror_;
+  MirrorWindow::Source mirrorSource_;
+  std::string mirrorStatus_;
 
   uint32_t appInstance_ = 0;
   uint32_t nextGeneration_ = 0;

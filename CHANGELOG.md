@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Spectator window for streaming / recording (OBS): the overlay windows reach the headset as separate
+  quad layers that only the VR runtime composes, so Elite's mirror window (and OBS) never showed them.
+  The layer now renders the left eye of the game with all overlay windows on top into a shared texture,
+  the app shows it in the window "ED Overlay Board - Mirror" (add it in OBS as Window Capture).
+  Settings `mirror` (off by default), `mirrorWidth` / `mirrorHeight` (1920 x 1080), `mirrorZoom`;
+  *General* tab. The game's D3D11 state is saved / restored around the extra pass. IPC v10: update app
+  and restart Elite
+
 ## 0.6.1
 
 - Aim with the head: the VR menu now checks horizontal and vertical separately whether you are still

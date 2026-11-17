@@ -36,6 +36,7 @@ App::App(std::atomic<bool>& quit) : quit_(quit) {
 
 App::~App() {
   settings_.reset();
+  mirror_.reset();
   for (auto& s : slots_)
     if (s.handle) CloseHandle(s.handle);
   slots_.clear();
@@ -103,6 +104,7 @@ bool App::Init() {
   vrMenu_ = std::make_unique<VrMenu>(*this);
   RebuildSlots();
   settings_ = std::make_unique<SettingsWindow>(*this);
+  mirror_ = std::make_unique<MirrorWindow>(d3d_);
   return true;
 }
 
@@ -259,6 +261,11 @@ void App::Tick() {
   if (settings_) settings_->Frame();
   CheckKeyboard();
   SyncShared();
+  if (mirror_->TakeClosed()) {  // closing the mirror window switches the mirror off
+    cfg_.mirror = false;
+    MarkDirty();
+  }
+  mirror_->Update(cfg_.mirror, mirrorSource_);
   UpdateShowSounds();
   SaveIfIdle(false);
 }
@@ -375,6 +382,10 @@ void App::SyncShared() {
   st->sharpness = std::clamp(cfg_.sharpness, 0.5f, 4.0f);
   st->pointerSmoothing = std::clamp(cfg_.pointerSmoothing, 0.0f, 1.0f);
   st->headAim = cfg_.headAim;
+  st->mirrorEnabled = cfg_.mirror;
+  st->mirrorWidth = static_cast<uint32_t>(std::clamp(cfg_.mirrorWidth, 320, 3840));
+  st->mirrorHeight = static_cast<uint32_t>(std::clamp(cfg_.mirrorHeight, 180, 2160));
+  st->mirrorZoom = std::clamp(cfg_.mirrorZoom, 1.0f, 3.0f);
   st->windowCount = static_cast<uint32_t>(slots_.size());
 
   for (size_t i = 0; i < slots_.size(); ++i) {
@@ -468,6 +479,13 @@ void App::SyncShared() {
     if (!connected) StopKeyboard("VR disconnected");
   }
   vrStatus_.connected = connected;
+  mirrorSource_.connected = connected;
+  mirrorSource_.pid = st->layerPid;
+  mirrorSource_.generation = st->mirrorGeneration;
+  mirrorSource_.width = st->mirrorTexWidth;
+  mirrorSource_.height = st->mirrorTexHeight;
+  mirrorSource_.frame = st->mirrorFrame;
+  mirrorStatus_ = connected ? std::string(st->mirrorStatus, strnlen(st->mirrorStatus, sizeof(st->mirrorStatus))) : "";
   vrStatus_.application = st->layerApplication;
   vrStatus_.runtime = st->layerRuntime;
   vrStatus_.controllers = st->layerControllers != 0;
@@ -530,6 +548,8 @@ void App::Execute(const BindingConfig& b) {
 }
 
 bool App::MenuVisible() const { return menuCfg_.visible; }
+
+std::string App::MirrorStatus() const { return mirrorStatus_; }
 
 // ---------------------------------------------------------------------------
 // PC keyboard into a VR window. Elite keeps the focus; the keys are taken away from it by a

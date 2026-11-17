@@ -116,7 +116,9 @@ void OverlaySession::Init() {
   CreateStaticSwapchain(4, 4, std::vector<uint32_t>(16, Bgra(255, 205, 130, 255)), glow_);
 
   quads_.reserve(ipc::kMaxWindows * 5 + 4);
+  mirrorQuads_.reserve(quads_.capacity());
   colorScales_.reserve(ipc::kMaxWindows + 1);
+  mirror_ = std::make_unique<Mirror>(device_.Get(), context_.Get(), GetCurrentProcessId());
   Log("Overlay session ready (swapchain format {})", format_);
 }
 
@@ -189,6 +191,21 @@ bool OverlaySession::CreateStaticSwapchain(uint32_t w, uint32_t h, const std::ve
     context_->UpdateSubresource(dst, 0, nullptr, bgra.data(), w * 4, 0);
   });
   if (!ok) Log("Static swapchain {}x{}: {}", w, h, lastError_);
+
+  // the same pixels as a plain texture for the spectator mirror (swapchain images may not be sampled outside)
+  D3D11_TEXTURE2D_DESC d{};
+  d.Width = w;
+  d.Height = h;
+  d.MipLevels = 1;
+  d.ArraySize = 1;
+  d.Format = format_ == DXGI_FORMAT_B8G8R8A8_UNORM_SRGB ? DXGI_FORMAT_B8G8R8A8_UNORM_SRGB : DXGI_FORMAT_B8G8R8A8_UNORM;
+  d.SampleDesc.Count = 1;
+  d.Usage = D3D11_USAGE_IMMUTABLE;
+  d.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+  D3D11_SUBRESOURCE_DATA init{bgra.data(), w * 4, 0};
+  ComPtr<ID3D11Texture2D> tex;
+  if (SUCCEEDED(device_->CreateTexture2D(&d, &init, tex.GetAddressOf())))
+    device_->CreateShaderResourceView(tex.Get(), nullptr, sc.srv.GetAddressOf());
   return ok;
 }
 
@@ -259,6 +276,16 @@ void OverlaySession::SyncIpc() {
   input_.SetSmoothing(s->pointerSmoothing);
   pointerSmoothing_ = s->pointerSmoothing;
   headAim_ = s->headAim != 0;
+  mirrorEnabled_ = s->mirrorEnabled != 0;
+  mirrorWidth_ = s->mirrorWidth;
+  mirrorHeight_ = s->mirrorHeight;
+  mirrorZoom_ = s->mirrorZoom > 0.1f ? s->mirrorZoom : 1.0f;
+  const bool mirrorOn = mirrorEnabled_ && mirror_;
+  s->mirrorGeneration = mirrorOn ? mirror_->Generation() : 0;
+  s->mirrorTexWidth = mirrorOn ? mirror_->Width() : 0;
+  s->mirrorTexHeight = mirrorOn ? mirror_->Height() : 0;
+  s->mirrorFrame = mirrorFrame_;
+  strncpy_s(s->mirrorStatus, mirrorOn ? mirror_->Status().c_str() : "off", _TRUNCATE);
 
   s->layerHeartbeat = now;
   s->layerPid = GetCurrentProcessId();
@@ -922,9 +949,12 @@ int OverlaySession::ChooseMipLevel(const Win& w) const {
 void OverlaySession::BuildLayers(const XrFrameEndInfo* info) {
   layers_.assign(info->layers, info->layers + info->layerCount);
   quads_.clear();
+  mirrorQuads_.clear();
   colorScales_.clear();
 
-  auto addQuad = [&](const Swapchain& sc, const Pose& pose, float w, float h, bool blend) -> XrCompositionLayerQuad* {
+  // srv: the same picture for the spectator mirror
+  auto addQuad = [&](const Swapchain& sc, ID3D11ShaderResourceView* srv, const Pose& pose, float w, float h,
+                     bool blend) -> XrCompositionLayerQuad* {
     if (!sc.handle || layers_.size() >= maxLayers_ || quads_.size() == quads_.capacity()) return nullptr;
     XrCompositionLayerQuad q{XR_TYPE_COMPOSITION_LAYER_QUAD};
     q.layerFlags = blend ? (XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT |
@@ -937,6 +967,13 @@ void OverlaySession::BuildLayers(const XrFrameEndInfo* info) {
     q.pose = ToXr(pose);
     q.size = {w, h};
     quads_.push_back(q);
+    Mirror::Quad mq;
+    mq.srv = srv;
+    mq.pose = pose;
+    mq.width = w;
+    mq.height = h;
+    mq.blend = blend;
+    mirrorQuads_.push_back(mq);
     layers_.push_back(reinterpret_cast<const XrCompositionLayerBaseHeader*>(&quads_.back()));
     return &quads_.back();
   };
@@ -982,7 +1019,7 @@ void OverlaySession::BuildLayers(const XrFrameEndInfo* info) {
     const float qw = w.width * fx * sx, qh = h * fy * sy;
 
     if (lineOnly) {  // first phase of the hologram: just the glowing line
-      addQuad(glow_, world, qw, kLineHeight, true);
+      addQuad(glow_, glow_.srv.Get(), world, qw, kLineHeight, true);
       continue;
     }
 
@@ -993,26 +1030,34 @@ void OverlaySession::BuildLayers(const XrFrameEndInfo* info) {
     bool onZone = (hover_[0].window == i && hover_[0].zone) || (hover_[1].window == i && hover_[1].zone);
     if ((grabbed || hovered) && !w.locked && !w.interactive && a >= 1.0f) {  // locked windows / menu: no frame
       const float m = GrabMargin(w);
-      addQuad(grabbed ? frameGrab_ : onZone ? frameZone_ : frameHover_, world * Pose::Translation({0, 0, -0.002f}),
-              w.width + 2 * m, h + 2 * m, true);
+      const Swapchain& frame = grabbed ? frameGrab_ : onZone ? frameZone_ : frameHover_;
+      addQuad(frame, frame.srv.Get(), world * Pose::Translation({0, 0, -0.002f}), w.width + 2 * m, h + 2 * m, true);
     }
 
     if (w.keyboardFocus && a >= 1.0f) {  // PC keyboard types into this window: thin blue border
       constexpr float kBorder = 0.006f;
-      addQuad(frameKeys_, world * Pose::Translation({0, 0, -0.001f}), w.width + 2 * kBorder, h + 2 * kBorder, true);
+      addQuad(frameKeys_, frameKeys_.srv.Get(), world * Pose::Translation({0, 0, -0.001f}), w.width + 2 * kBorder,
+              h + 2 * kBorder, true);
     }
 
     bool fade = colorScaleBias_ && w.opacity < 0.999f;
-    auto* q = addQuad(w.swapchain, world, qw, qh, !w.opaque || fade);
+    auto* q = addQuad(w.swapchain, w.mipSrv.Get(), world, qw, qh, !w.opaque || fade);
     if (q && (fx < 1.0f || fy < 1.0f)) {  // crop to the middle part of the picture
       const int32_t W = static_cast<int32_t>(w.swapchain.width), H = static_cast<int32_t>(w.swapchain.height);
       const int32_t cw = std::clamp(static_cast<int32_t>(std::lround(W * fx)), 1, W);
       const int32_t ch = std::clamp(static_cast<int32_t>(std::lround(H * fy)), 1, H);
       q->subImage.imageRect = {{(W - cw) / 2, (H - ch) / 2}, {cw, ch}};
+      const float ux = 0.5f * (1.0f - static_cast<float>(cw) / W), uy = 0.5f * (1.0f - static_cast<float>(ch) / H);
+      Mirror::Quad& mq = mirrorQuads_.back();
+      mq.uv[0] = ux;
+      mq.uv[1] = uy;
+      mq.uv[2] = 1.0f - ux;
+      mq.uv[3] = 1.0f - uy;
     }
+    if (q && fade) mirrorQuads_.back().alpha = w.opacity;
     if (edges) {  // hologram: glowing edges travel outwards while it opens
       for (float side : {0.5f, -0.5f})
-        addQuad(glow_, world * Pose::Translation({0, side * qh, 0.001f}), qw, kLineHeight * 0.6f, true);
+        addQuad(glow_, glow_.srv.Get(), world * Pose::Translation({0, side * qh, 0.001f}), qw, kLineHeight * 0.6f, true);
     }
     if (q && fade && colorScales_.size() < colorScales_.capacity()) {
       XrCompositionLayerColorScaleBiasKHR cs{XR_TYPE_COMPOSITION_LAYER_COLOR_SCALE_BIAS_KHR};
@@ -1029,8 +1074,123 @@ void OverlaySession::BuildLayers(const XrFrameEndInfo* info) {
       if (h == 1 && headAim_ && hover_[0].window == hv.window && grabs_[0].window < 0) continue;  // same dot
       Vec3 at = hv.local;
       at.z += 0.004f;
-      addQuad(cursor_, World(windows_[hv.window]) * Pose::Translation(at), kCursorSize, kCursorSize, true);
+      addQuad(cursor_, cursor_.srv.Get(), World(windows_[hv.window]) * Pose::Translation(at), kCursorSize, kCursorSize,
+              true);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Spectator mirror
+
+void OverlaySession::OnSwapchainCreated(XrSwapchain sc, const XrSwapchainCreateInfo& info) {
+  std::lock_guard lock(swapchainMutex_);
+  GameSwapchain g;
+  g.format = info.format;
+  gameSwapchains_[sc] = std::move(g);
+  Log("Game swapchain: {}x{}, format {}, {} slice(s), {} sample(s), usage 0x{:X}", info.width, info.height, info.format,
+      info.arraySize, info.sampleCount, info.usageFlags);
+}
+
+void OverlaySession::OnSwapchainImages(XrSwapchain sc, const XrSwapchainImageD3D11KHR* images, uint32_t count) {
+  std::lock_guard lock(swapchainMutex_);
+  auto it = gameSwapchains_.find(sc);
+  if (it == gameSwapchains_.end()) return;
+  it->second.images.clear();
+  for (uint32_t i = 0; i < count; ++i) it->second.images.push_back(images[i].texture);
+}
+
+void OverlaySession::OnSwapchainAcquired(XrSwapchain sc, uint32_t index) {
+  std::lock_guard lock(swapchainMutex_);
+  auto it = gameSwapchains_.find(sc);
+  if (it != gameSwapchains_.end()) it->second.acquired.push_back(index);
+}
+
+void OverlaySession::OnSwapchainReleased(XrSwapchain sc) {
+  std::lock_guard lock(swapchainMutex_);
+  auto it = gameSwapchains_.find(sc);
+  if (it == gameSwapchains_.end() || it->second.acquired.empty()) return;
+  it->second.released = it->second.acquired.front();
+  it->second.acquired.pop_front();
+}
+
+void OverlaySession::OnSwapchainDestroyed(XrSwapchain sc) {
+  std::lock_guard lock(swapchainMutex_);
+  if (gameSwapchains_.erase(sc)) forgetMirrorViews_ = true;  // dropped on the render thread (RenderMirror)
+}
+
+void OverlaySession::RenderMirror(const XrFrameEndInfo* info, bool withWindows) {
+  if (!mirror_) return;
+  if (!mirrorEnabled_) {
+    if (mirror_->Generation()) {
+      mirror_->Release();
+      Log("Mirror: off");
+    }
+    mirrorLogged_.clear();
+    return;
+  }
+  auto status = [&](const std::string& s) {
+    mirror_->SetStatus(s);
+    if (s != mirrorLogged_) Log("Mirror: {}", s);
+    mirrorLogged_ = s;
+  };
+
+  const XrCompositionLayerProjection* proj = nullptr;
+  for (uint32_t i = 0; i < info->layerCount && !proj; ++i)
+    if (info->layers[i] && info->layers[i]->type == XR_TYPE_COMPOSITION_LAYER_PROJECTION)
+      proj = reinterpret_cast<const XrCompositionLayerProjection*>(info->layers[i]);
+  if (!proj || proj->viewCount == 0 || !proj->views) {
+    status("the game submits no 3D picture this frame");
+    return;
+  }
+  const XrCompositionLayerProjectionView& v = proj->views[0];  // left eye
+
+  Mirror::Eye eye;
+  {
+    std::lock_guard lock(swapchainMutex_);
+    if (forgetMirrorViews_) {  // views onto images of a destroyed swapchain
+      mirror_->ForgetSourceViews();
+      forgetMirrorViews_ = false;
+    }
+    auto it = gameSwapchains_.find(v.subImage.swapchain);
+    if (it == gameSwapchains_.end() || it->second.released < 0 ||
+        it->second.released >= static_cast<int64_t>(it->second.images.size())) {
+      status("game swapchain not known (created before the layer was loaded?)");
+      return;
+    }
+    eye.texture = it->second.images[static_cast<size_t>(it->second.released)];
+    eye.format = static_cast<DXGI_FORMAT>(it->second.format);
+  }
+  eye.arrayIndex = v.subImage.imageArrayIndex;
+  eye.x = v.subImage.imageRect.offset.x;
+  eye.y = v.subImage.imageRect.offset.y;
+  eye.width = v.subImage.imageRect.extent.width;
+  eye.height = v.subImage.imageRect.extent.height;
+  eye.fov = v.fov;
+
+  XrSpaceLocation loc{XR_TYPE_SPACE_LOCATION};
+  const XrSpaceLocationFlags need = XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT;
+  if (XR_FAILED(next_.xrLocateSpace(proj->space, localSpace_, info->displayTime, &loc)) ||
+      (loc.locationFlags & need) != need) {
+    status("cannot locate the game's view space");
+    return;
+  }
+  eye.pose = ToPose(loc.pose) * ToPose(v.pose);
+
+  static const std::vector<Mirror::Quad> kNone;
+  if (mirror_->Render(eye, withWindows ? mirrorQuads_ : kNone, mirrorWidth_, mirrorHeight_, mirrorZoom_)) {
+    ++mirrorFrame_;
+    if (auto lock = shm_.Acquire(1)) {  // tell the app right away (not only with the next frame)
+      ipc::State* s = shm_.Get();
+      s->mirrorGeneration = mirror_->Generation();
+      s->mirrorTexWidth = mirror_->Width();
+      s->mirrorTexHeight = mirror_->Height();
+      s->mirrorFrame = mirrorFrame_;
+    }
+  }
+  if (mirror_->Status() != mirrorLogged_) {
+    mirrorLogged_ = mirror_->Status();
+    Log("Mirror: {}", mirrorLogged_);
+  }
 }
 
 XrResult OverlaySession::EndFrame(const XrFrameEndInfo* info) {
@@ -1053,6 +1213,7 @@ XrResult OverlaySession::EndFrame(const XrFrameEndInfo* info) {
         ReleaseGrab(h);
         hover_[h] = {};
       }
+      if (connected_) RenderMirror(info, false);
       return next_.xrEndFrame(session_, info);
     }
 
@@ -1061,6 +1222,7 @@ XrResult OverlaySession::EndFrame(const XrFrameEndInfo* info) {
     UpdateContent();
     UpdateAnimations(dt);
     BuildLayers(info);
+    RenderMirror(info, true);
 
     size_t shown = 0;  // windows only (cursor/frame quads come and go while pointing)
     for (const auto& w : windows_) shown += w.active && w.visible && w.hasImage;

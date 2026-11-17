@@ -86,6 +86,9 @@ struct AppConfig {
   float sharpness = 1.0f;      // 1 = smooth (anti-aliased), 1.5-2 = sharper but may shimmer
   float menuWidth = 0.40f;     // VR quick menu width (m)
   std::string language;        // "de", "en" or "" = Windows display language
+  bool mirror = false;          // spectator window (game picture + overlay windows) for OBS
+  int mirrorWidth = 1920, mirrorHeight = 1080;
+  float mirrorZoom = 1.0f;      // 1 = widest view, larger = narrower (less fish-eye)
   bool perShipLayouts = true;  // remember window placement + visibility per ship type (from the game journal)
   // ship type / vehicle ("krait_mkii", "srv", "onfoot", ...) -> window name -> placement
   std::map<std::string, std::map<std::string, ShipPlacement>> shipLayouts;

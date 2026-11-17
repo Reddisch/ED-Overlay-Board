@@ -41,6 +41,7 @@ class SettingsWindow {
   void DrawBindingsTab();
   void DrawGeneralTab();
   void DrawShipLayouts();
+  void DrawMirror();
   void DrawStatusTab();
 
   App& app_;

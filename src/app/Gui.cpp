@@ -730,6 +730,7 @@ void SettingsWindow::DrawGeneralTab() {
   if (c) app_.ConfigChanged(false);
   ImGui::PopItemWidth();
 
+  DrawMirror();
   DrawShipLayouts();
 
   ImGui::SeparatorText("OpenXR-Layer");
@@ -746,6 +747,51 @@ void SettingsWindow::DrawGeneralTab() {
   wchar_t local[MAX_PATH]{};
   GetEnvironmentVariableW(L"LOCALAPPDATA", local, MAX_PATH);
   if (ImGui::Button(T("Layer-Logs öffnen", "Open layer logs"))) OpenFolder(std::filesystem::path(local) / L"EDOverlayBoard");
+}
+
+void SettingsWindow::DrawMirror() {
+  auto& cfg = app_.Config();
+  ImGui::SeparatorText(T("Zuschauerfenster (Streamen / Aufnehmen mit OBS)", "Spectator window (streaming / recording with OBS)"));
+  bool c = ImGui::Checkbox(T("Zuschauerfenster mit Spielbild und Overlay-Fenstern###mirror",
+                             "Spectator window with the game picture and the overlay windows###mirror"),
+                           &cfg.mirror);
+  ImGui::SetItemTooltip("%s", T("Die Overlay-Fenster sind im normalen Spiegelfenster von Elite nicht zu sehen (sie werden "
+                                "erst von der VR-Runtime eingeblendet). Dieses Fenster zeigt das linke Auge mit allen "
+                                "Overlay-Fenstern. In OBS als \"Fensteraufnahme\" hinzufügen: [EDOverlayBoard.exe] "
+                                "ED Overlay Board - Mirror. Das Fenster darf nicht minimiert sein.",
+                                "The overlay windows are not visible in Elite's own mirror window (only the VR runtime "
+                                "adds them). This window shows the left eye with all overlay windows. In OBS add it as "
+                                "\"Window Capture\": [EDOverlayBoard.exe] ED Overlay Board - Mirror. The window must "
+                                "not be minimized."));
+  static const struct { int w, h; } kSizes[] = {{1280, 720}, {1600, 900}, {1920, 1080}, {2560, 1440}};
+  int sel = -1;
+  for (int i = 0; i < static_cast<int>(std::size(kSizes)); ++i)
+    if (kSizes[i].w == cfg.mirrorWidth && kSizes[i].h == cfg.mirrorHeight) sel = i;
+  const std::string current = std::to_string(cfg.mirrorWidth) + " x " + std::to_string(cfg.mirrorHeight);
+  ImGui::SetNextItemWidth(320 * scale_);
+  if (ImGui::BeginCombo(T("Auflösung###mirrorsize", "Resolution###mirrorsize"), current.c_str())) {
+    for (int i = 0; i < static_cast<int>(std::size(kSizes)); ++i) {
+      const std::string label = std::to_string(kSizes[i].w) + " x " + std::to_string(kSizes[i].h);
+      if (ImGui::Selectable(label.c_str(), sel == i)) {
+        cfg.mirrorWidth = kSizes[i].w;
+        cfg.mirrorHeight = kSizes[i].h;
+        c = true;
+      }
+    }
+    ImGui::EndCombo();
+  }
+  ImGui::SetNextItemWidth(320 * scale_);
+  c |= ImGui::SliderFloat(T("Zoom###mirrorzoom", "Zoom###mirrorzoom"), &cfg.mirrorZoom, 1.0f, 2.5f, "%.2f");
+  ImGui::SetItemTooltip("%s", T("1.0 = so weit wie das Spielbild reicht (stark verzerrte Ränder), größer = kleinerer "
+                                "Ausschnitt, natürlicher auf dem Monitor",
+                                "1.0 = as wide as the game picture allows (strongly distorted edges), larger = smaller "
+                                "section, looks more natural on a monitor"));
+  if (c) app_.ConfigChanged(false);
+  if (cfg.mirror) {
+    const std::string st = app_.MirrorStatus();
+    ImGui::TextDisabled(T("Zustand: %s", "State: %s"),
+                        st.empty() ? T("wartet auf das Spiel in VR", "waiting for the game in VR") : st.c_str());
+  }
 }
 
 void SettingsWindow::DrawShipLayouts() {

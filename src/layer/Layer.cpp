@@ -104,6 +104,45 @@ XRAPI_ATTR XrResult XRAPI_CALL Hook_xrEndFrame(XrSession session, const XrFrameE
   return g->next.xrEndFrame(session, info);
 }
 
+// The game's swapchains: the spectator mirror needs to know which image holds the eye picture.
+XRAPI_ATTR XrResult XRAPI_CALL Hook_xrCreateSwapchain(XrSession session, const XrSwapchainCreateInfo* info,
+                                                      XrSwapchain* swapchain) {
+  XrResult r = g->next.xrCreateSwapchain(session, info, swapchain);
+  OverlaySession* s = g->session.get();
+  if (XR_SUCCEEDED(r) && info && s && s->Handle() == session) s->OnSwapchainCreated(*swapchain, *info);
+  return r;
+}
+
+XRAPI_ATTR XrResult XRAPI_CALL Hook_xrDestroySwapchain(XrSwapchain swapchain) {
+  if (OverlaySession* s = g->session.get()) s->OnSwapchainDestroyed(swapchain);
+  return g->next.xrDestroySwapchain(swapchain);
+}
+
+XRAPI_ATTR XrResult XRAPI_CALL Hook_xrEnumerateSwapchainImages(XrSwapchain swapchain, uint32_t capacity,
+                                                               uint32_t* count, XrSwapchainImageBaseHeader* images) {
+  XrResult r = g->next.xrEnumerateSwapchainImages(swapchain, capacity, count, images);
+  OverlaySession* s = g->session.get();
+  if (XR_SUCCEEDED(r) && s && images && capacity > 0 && count && images->type == XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR)
+    s->OnSwapchainImages(swapchain, reinterpret_cast<const XrSwapchainImageD3D11KHR*>(images), *count);
+  return r;
+}
+
+XRAPI_ATTR XrResult XRAPI_CALL Hook_xrAcquireSwapchainImage(XrSwapchain swapchain,
+                                                            const XrSwapchainImageAcquireInfo* info, uint32_t* index) {
+  XrResult r = g->next.xrAcquireSwapchainImage(swapchain, info, index);
+  OverlaySession* s = g->session.get();
+  if (XR_SUCCEEDED(r) && s && index) s->OnSwapchainAcquired(swapchain, *index);
+  return r;
+}
+
+XRAPI_ATTR XrResult XRAPI_CALL Hook_xrReleaseSwapchainImage(XrSwapchain swapchain,
+                                                            const XrSwapchainImageReleaseInfo* info) {
+  XrResult r = g->next.xrReleaseSwapchainImage(swapchain, info);
+  OverlaySession* s = g->session.get();
+  if (XR_SUCCEEDED(r) && s) s->OnSwapchainReleased(swapchain);
+  return r;
+}
+
 XRAPI_ATTR XrResult XRAPI_CALL Hook_xrPollEvent(XrInstance instance, XrEventDataBuffer* event) {
   XrResult r = g->next.xrPollEvent(instance, event);
   if (r == XR_SUCCESS && event && event->type == XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING) {
@@ -146,6 +185,11 @@ XRAPI_ATTR XrResult XRAPI_CALL Hook_xrGetInstanceProcAddr(XrInstance instance, c
     EDOB_HOOK(xrDestroySession)
     EDOB_HOOK(xrEndFrame)
     EDOB_HOOK(xrPollEvent)
+    EDOB_HOOK(xrCreateSwapchain)
+    EDOB_HOOK(xrDestroySwapchain)
+    EDOB_HOOK(xrEnumerateSwapchainImages)
+    EDOB_HOOK(xrAcquireSwapchainImage)
+    EDOB_HOOK(xrReleaseSwapchainImage)
     EDOB_HOOK(xrSuggestInteractionProfileBindings)
     EDOB_HOOK(xrAttachSessionActionSets)
     EDOB_HOOK(xrSyncActions)

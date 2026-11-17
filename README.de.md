@@ -44,6 +44,8 @@ Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculu
   bei großen Quellen wie 4K-Kneeboards). `settings.sharpness`: 1.0 = ruhig, 1.5–2 = schärfer
 - **Layout pro Schiffstyp:** Fensterpositionen und Sichtbarkeit werden pro Schiff gemerkt (und für SRV,
   Fighter, zu Fuß, Taxi) – das Schiff wird aus dem Journal des Spiels gelesen
+- **Zuschauerfenster für OBS:** Spielbild (linkes Auge) mit allen Overlay-Fenstern als Desktop-Fenster zum
+  Streamen / Aufnehmen – im Spiegelfenster von Elite sind sie nicht zu sehen (siehe unten)
 - Layout wird automatisch gespeichert, Zeiger-Cursor, Rahmen beim Anvisieren, Haptik
 
 ## Passende Programme
@@ -207,6 +209,9 @@ Alles lässt sich im Einstellungsfenster einstellen; die Datei muss man nicht vo
 | `showCursor` | Zeiger-Punkt auf den Fenstern anzeigen |
 | `haptics` | Vibration der Controller |
 | `clickVolume` | Lautstärke des Klickgeräuschs, 0 = aus |
+| `mirror` | `true`: Zuschauerfenster „ED Overlay Board - Mirror“ mit Spielbild und Overlay-Fenstern (für OBS) |
+| `mirrorWidth` / `mirrorHeight` | Größe des Zuschauerbilds in Pixeln (Standard 1920 x 1080) |
+| `mirrorZoom` | 1.0 = so weit wie das Spielbild reicht, größer = kleinerer Ausschnitt (weniger verzerrte Ränder) |
 | `onlyInGame` | `true` (Standard): Fenster erst im Spiel (nicht im Hauptmenü / beim Laden); das VR-Menü geht immer |
 | `headAim` | `true`: mit dem Kopf zielen (Blickmitte), Trigger / Kneifen klickt, Fenster greifen / verschieben weiter mit der Hand |
 | `pointerSmoothing` | VR-Zeiger: 0 = roh, 1 = stärkste Glättung + Strahl beim Klicken festhalten (Handtracking: 0.5-0.8) |
@@ -272,6 +277,18 @@ Das gespiegelte Fenster darf hinter dem Spiel liegen, aber **nicht minimiert** s
   **Kombinationen** auf einem Gerät: `"buttons": [5, 12]` (im Einstellungsfenster: Tasten gleichzeitig halten,
   dann loslassen). Ist eine Taste allein und zusätzlich in einer Kombination belegt, löst sie allein erst beim
   Loslassen aus – und nur, wenn die Kombination dabei nicht benutzt wurde (z. B. Taste 5 als „Umschalttaste“).
+
+## Streamen / Aufnehmen (OBS)
+
+Die Overlay-Fenster sind nicht Teil des Spielbilds: Der Layer übergibt sie der VR-Runtime als eigene
+Ebenen, und erst die legt sie im Headset darüber. Deshalb fehlen sie im Spiegelfenster von Elite und in
+einer OBS-Aufnahme des Spiels.
+
+Zum Streamen **Einstellungen → Allgemein → Zuschauerfenster** einschalten. Das Fenster
+„ED Overlay Board - Mirror“ zeigt das linke Auge mit allen Overlay-Fenstern (wie im Headset, auch VR-Menü
+und Zeiger). In OBS eine **Fensteraufnahme** von `[EDOverlayBoard.exe] ED Overlay Board - Mirror` hinzufügen
+(Aufnahmemethode „Windows 10“). Das Fenster darf verdeckt, aber nicht minimiert sein. Auflösung und Zoom
+stehen in den Einstellungen; Schließen des Fensters schaltet es aus.
 
 ## Fehlersuche
 

@@ -16,17 +16,23 @@
 namespace ipc {
 
 constexpr uint32_t kMagic = 0x424F4445;  // "EDOB"
-constexpr uint32_t kVersion = 9;
+constexpr uint32_t kVersion = 10;
 constexpr int kMaxWindows = 16;
 constexpr uint64_t kHeartbeatTimeoutMs = 3000;
 
-inline constexpr wchar_t kMappingName[] = L"Local\\EDOverlayBoard.State.v9";
-inline constexpr wchar_t kMutexName[] = L"Local\\EDOverlayBoard.Mutex.v9";
+inline constexpr wchar_t kMappingName[] = L"Local\\EDOverlayBoard.State.v10";
+inline constexpr wchar_t kMutexName[] = L"Local\\EDOverlayBoard.Mutex.v10";
 
 // Name of a shared D3D11 texture (NT handle + keyed mutex, BGRA8). `generation` is unique
 // within one app instance, so a name is never reused while the layer may still hold it.
 inline std::wstring TextureName(uint32_t appInstance, uint32_t generation) {
   return L"Local\\EDOverlayBoard.Tex." + std::to_wstring(appInstance) + L"." + std::to_wstring(generation);
+}
+
+// Spectator mirror (layer -> app): the game's picture with the overlay windows on top, created
+// by the layer in the game process. Unique per game process + generation.
+inline std::wstring MirrorTextureName(uint32_t layerPid, uint32_t generation) {
+  return L"Local\\EDOverlayBoard.Mirror." + std::to_wstring(layerPid) + L"." + std::to_wstring(generation);
 }
 
 enum ShowEffect : uint32_t { kEffectNone = 0, kEffectHologram = 1, kEffectZoom = 2, kEffectTv = 3, kEffectCount };
@@ -111,6 +117,9 @@ struct State {
   float sharpness;      // 1 = texture matched to display pixels (no shimmer), higher = sharper
   float pointerSmoothing;  // 0 = raw pointer ray, 1 = strongest smoothing + click steadying
   uint32_t headAim;        // aim with the head (view center), click with trigger / pinch
+  uint32_t mirrorEnabled;  // render the spectator mirror (desktop window for OBS)
+  uint32_t mirrorWidth, mirrorHeight;  // requested size in pixels
+  float mirrorZoom;        // 1 = widest view that fits into the eye picture, larger = narrower
 
   // layer -> app
   uint64_t layerHeartbeat;
@@ -120,6 +129,10 @@ struct State {
   uint32_t layerControllers;
   char layerRuntime[128];
   char layerApplication[128];
+  uint32_t mirrorGeneration;  // 0 = no mirror texture; see MirrorTextureName
+  uint32_t mirrorTexWidth, mirrorTexHeight;
+  uint32_t mirrorFrame;       // increments with every new picture in the mirror texture
+  char mirrorStatus[128];     // what the mirror is doing / why it is not working
 
   Window windows[kMaxWindows];
 };

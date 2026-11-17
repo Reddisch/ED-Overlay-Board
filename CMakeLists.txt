@@ -86,6 +86,7 @@ add_executable(EDOverlayBoard
   src/app/WindowCaptureSource.cpp
   src/app/Sounds.cpp
   src/app/ShipTracker.cpp
+  src/app/MirrorWindow.cpp
   src/app/app.rc
   src/common/Log.cpp
 )
@@ -106,13 +107,14 @@ add_library(EDOverlayBoard_Layer SHARED
   src/layer/Layer.cpp
   src/layer/Input.cpp
   src/layer/OverlaySession.cpp
+  src/layer/Mirror.cpp
   src/common/Log.cpp
 )
 target_include_directories(EDOverlayBoard_Layer PRIVATE src/layer src/common "${OXR_DIR}")
 target_compile_definitions(EDOverlayBoard_Layer PRIVATE ${COMMON_DEFS}
   XR_NO_PROTOTYPES XR_USE_PLATFORM_WIN32 XR_USE_GRAPHICS_API_D3D11)
 target_compile_options(EDOverlayBoard_Layer PRIVATE ${COMMON_OPTS})
-target_link_libraries(EDOverlayBoard_Layer PRIVATE d3d11 dxgi)
+target_link_libraries(EDOverlayBoard_Layer PRIVATE d3d11 dxgi d3dcompiler)
 
 # Put the app, the layer DLL, its manifest and the resources into one folder
 set_target_properties(EDOverlayBoard EDOverlayBoard_Layer PROPERTIES

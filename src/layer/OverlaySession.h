@@ -4,9 +4,14 @@
 #include "Input.h"
 #include "Ipc.h"
 #include "Log.h"
+#include "Mirror.h"
 #include "XrIncludes.h"
 
+#include <deque>
 #include <functional>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -41,11 +46,25 @@ class OverlaySession {
     Log("LOCAL reference space changed by the runtime - recentering");
   }
 
+  // The game's own swapchains (hooked calls): the spectator mirror reads its eye picture.
+  void OnSwapchainCreated(XrSwapchain sc, const XrSwapchainCreateInfo& info);
+  void OnSwapchainImages(XrSwapchain sc, const XrSwapchainImageD3D11KHR* images, uint32_t count);
+  void OnSwapchainAcquired(XrSwapchain sc, uint32_t index);
+  void OnSwapchainReleased(XrSwapchain sc);
+  void OnSwapchainDestroyed(XrSwapchain sc);
+
  private:
   struct Swapchain {
     XrSwapchain handle = XR_NULL_HANDLE;
     uint32_t width = 0, height = 0;
     std::vector<ID3D11Texture2D*> images;
+    ComPtr<ID3D11ShaderResourceView> srv;  // static swapchains: same pixels for the spectator mirror
+  };
+  struct GameSwapchain {
+    int64_t format = 0;
+    std::vector<ID3D11Texture2D*> images;
+    std::deque<uint32_t> acquired;  // acquired, not yet released (FIFO)
+    int64_t released = -1;          // last released image = the one submitted with the frame
   };
 
   struct Win {
@@ -146,6 +165,7 @@ class OverlaySession {
   bool EnsureMipTexture(Win& w, uint32_t width, uint32_t height);
   void SetStatus(int i, const std::string& status);
   void BuildLayers(const XrFrameEndInfo* info);
+  void RenderMirror(const XrFrameEndInfo* info, bool withWindows);
 
   Pose World(const Win& w) const { return center_ * w.rel; }
   bool Intersect(const Win& w, const Pose& ray, float margin, float& dist, Vec3& local) const;
@@ -226,4 +246,16 @@ class OverlaySession {
   std::vector<const XrCompositionLayerBaseHeader*> layers_;
   std::vector<XrCompositionLayerQuad> quads_;
   std::vector<XrCompositionLayerColorScaleBiasKHR> colorScales_;
+
+  // spectator mirror
+  std::mutex swapchainMutex_;
+  std::map<XrSwapchain, GameSwapchain> gameSwapchains_;
+  bool forgetMirrorViews_ = false;  // guarded by swapchainMutex_
+  std::unique_ptr<Mirror> mirror_;
+  std::vector<Mirror::Quad> mirrorQuads_;  // the overlay quads of this frame, for the mirror
+  bool mirrorEnabled_ = false;
+  uint32_t mirrorWidth_ = 1920, mirrorHeight_ = 1080;
+  float mirrorZoom_ = 1.0f;
+  uint32_t mirrorFrame_ = 0;
+  std::string mirrorLogged_;
 };
