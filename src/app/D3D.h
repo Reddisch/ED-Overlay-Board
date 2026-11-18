@@ -27,6 +27,10 @@ class D3D {
   // Same size, dst needs RENDER_TARGET, src SHADER_RESOURCE
   bool CopyTinted(ID3D11Texture2D* dst, ID3D11Texture2D* src, const float rgb[3], float alpha = 1.0f,
                   bool ignoreSrcAlpha = false);
+  // Kneeboard page in a panel frame (dark panel, chamfered corners, orange outline, header bar with
+  // title and page text). pbgra = premultiplied BGRA pixels of the page, w x h.
+  winrt::com_ptr<ID3D11Texture2D> CreateFramedTexture(const uint32_t* pbgra, uint32_t w, uint32_t h,
+                                                      const std::wstring& title, const std::wstring& pageText);
   winrt::com_ptr<ID3D11Texture2D> CreateTextTexture(const std::wstring& title, const std::wstring& body,
                                                     uint32_t w = 800, uint32_t h = 400);
 

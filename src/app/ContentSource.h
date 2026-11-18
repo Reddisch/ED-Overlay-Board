@@ -26,6 +26,7 @@ class ContentSource {
   virtual void SetSwipe(bool /*enabled*/, float /*speed*/) {}
   // window that should receive PC keyboard input (keyboard mode), nullptr = none
   virtual HWND KeyboardTarget() const { return nullptr; }
+  virtual void SetFrame(bool /*enabled*/) {}  // kneeboard: panel frame around the pages
   virtual void NextPage() {}
   virtual void PrevPage() {}
   virtual int Page() const { return 0; }

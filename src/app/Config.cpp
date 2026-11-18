@@ -125,6 +125,7 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       c.folder = w.value("folder", "");
       for (const auto& img : w.value("images", json::array())) c.images.push_back(img.get<std::string>());
       c.page = w.value("page", 0);
+      c.frame = w.value("frame", c.frame);
       c.position = ReadVec3(w, "position", c.position);
       c.rotation = ReadVec3(w, "rotation", c.rotation);
       c.width = w.value("width", c.width);
@@ -217,6 +218,7 @@ bool AppConfig::Save() {
       if (!c.folder.empty()) w["folder"] = c.folder;
       if (!c.images.empty()) w["images"] = c.images;
       w["page"] = c.page;
+      if (!c.frame) w["frame"] = false;
     }
     w["position"] = Vec3Json(c.position, 0.001);
     w["rotation"] = Vec3Json(c.rotation, 0.1);

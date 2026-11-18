@@ -27,6 +27,7 @@ struct WindowConfig {
   // type == "images"
   std::string folder;               // folder with PNG/JPG/... files (relative to config dir)
   std::vector<std::string> images;  // explicit file list (relative to config dir)
+  bool frame = true;                // draw a panel frame with title and page number around the pages
   int page = 0;
 
   // placement (relative to the recentered head position, meters / degrees)

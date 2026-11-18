@@ -144,6 +144,118 @@ bool D3D::CopyTinted(ID3D11Texture2D* dst, ID3D11Texture2D* src, const float rgb
   return true;
 }
 
+winrt::com_ptr<ID3D11Texture2D> D3D::CreateFramedTexture(const uint32_t* pbgra, uint32_t w, uint32_t h,
+                                                         const std::wstring& title, const std::wstring& pageText) {
+  if (!d2d_ || !dwrite_) return nullptr;
+  // all sizes follow the page size, so the frame looks the same for small and large pictures
+  const float u = std::max(6.0f, static_cast<float>(std::max(w, h)) / 100.0f);
+  const float border = std::round(2.0f * u);  // panel edge around the picture
+  const float header = std::round(6.0f * u);  // header bar (inside the panel, above the picture)
+  const float cut = 3.0f * u;                 // chamfered corners
+  const float line = std::max(2.0f, std::round(0.35f * u));
+  const uint32_t W = w + 2 * static_cast<uint32_t>(border);
+  const uint32_t H = h + 2 * static_cast<uint32_t>(border) + static_cast<uint32_t>(header);
+  auto tex = CreateTexture(W, H, nullptr, true);
+  if (!tex) return nullptr;
+
+  auto surface = tex.as<IDXGISurface>();
+  auto props = D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT,
+                                            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED),
+                                            96.0f, 96.0f);
+  winrt::com_ptr<ID2D1RenderTarget> rt;
+  if (FAILED(d2d_->CreateDxgiSurfaceRenderTarget(surface.get(), &props, rt.put()))) return nullptr;
+
+  winrt::com_ptr<ID2D1Bitmap> page;
+  if (FAILED(rt->CreateBitmap(D2D1::SizeU(w, h), pbgra, w * 4,
+                              D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
+                                                                       D2D1_ALPHA_MODE_PREMULTIPLIED)),
+                              page.put())))
+    return nullptr;
+
+  // outline of a panel with the top-left and bottom-right corners cut off (inset by `in`)
+  auto chamfered = [&](float x0, float y0, float x1, float y1, float c) {
+    winrt::com_ptr<ID2D1PathGeometry> g;
+    d2d_->CreatePathGeometry(g.put());
+    winrt::com_ptr<ID2D1GeometrySink> s;
+    if (!g || FAILED(g->Open(s.put()))) return g;
+    s->BeginFigure({x0 + c, y0}, D2D1_FIGURE_BEGIN_FILLED);
+    const D2D1_POINT_2F pts[] = {{x1, y0}, {x1, y1 - c}, {x1 - c, y1}, {x0, y1}, {x0, y0 + c}};
+    s->AddLines(pts, static_cast<UINT32>(std::size(pts)));
+    s->EndFigure(D2D1_FIGURE_END_CLOSED);
+    s->Close();
+    return g;
+  };
+
+  winrt::com_ptr<ID2D1SolidColorBrush> panel, orange, dim, dark;
+  rt->CreateSolidColorBrush(D2D1::ColorF(0.035f, 0.04f, 0.055f, 1.0f), panel.put());
+  rt->CreateSolidColorBrush(D2D1::ColorF(1.0f, 0.55f, 0.1f, 1.0f), orange.put());
+  rt->CreateSolidColorBrush(D2D1::ColorF(1.0f, 0.55f, 0.1f, 0.45f), dim.put());
+  rt->CreateSolidColorBrush(D2D1::ColorF(0.08f, 0.08f, 0.1f, 1.0f), dark.put());
+  winrt::com_ptr<IDWriteTextFormat> titleFmt, pageFmt;
+  const float fontSize = header * 0.52f;
+  dwrite_->CreateTextFormat(L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_BOLD, DWRITE_FONT_STYLE_NORMAL,
+                            DWRITE_FONT_STRETCH_NORMAL, fontSize, L"", titleFmt.put());
+  dwrite_->CreateTextFormat(L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL,
+                            DWRITE_FONT_STRETCH_NORMAL, fontSize, L"", pageFmt.put());
+  for (auto* f : {titleFmt.get(), pageFmt.get()})
+    if (f) {
+      f->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+      f->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
+    }
+  if (pageFmt) pageFmt->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+  if (titleFmt) {  // cut a too long title with "..."
+    DWRITE_TRIMMING trim{DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0};
+    winrt::com_ptr<IDWriteInlineObject> ellipsis;
+    dwrite_->CreateEllipsisTrimmingSign(titleFmt.get(), ellipsis.put());
+    titleFmt->SetTrimming(&trim, ellipsis.get());
+  }
+
+  const float fw = static_cast<float>(W), fh = static_cast<float>(H);
+  const float half = line * 0.5f;
+  auto outer = chamfered(half, half, fw - half, fh - half, cut);
+  // header bar: inside the outline, same chamfer at the top left
+  const float hx0 = line * 2.0f, hy0 = line * 2.0f, hx1 = fw - line * 2.0f, hy1 = border + header - line;
+  auto bar = chamfered(hx0, hy0, hx1, hy1 + cut, cut - line * 1.5f);  // bottom corner falls below the clip
+
+  std::wstring upper = title;
+  if (!upper.empty()) CharUpperBuffW(upper.data(), static_cast<DWORD>(upper.size()));
+
+  rt->BeginDraw();
+  rt->Clear(D2D1::ColorF(0, 0, 0, 0));
+  if (outer) rt->FillGeometry(outer.get(), panel.get());
+  if (bar) {
+    rt->PushAxisAlignedClip(D2D1::RectF(0, 0, fw, hy1), D2D1_ANTIALIAS_MODE_ALIASED);
+    rt->FillGeometry(bar.get(), orange.get());
+    rt->PopAxisAlignedClip();
+  }
+  const float tx0 = hx0 + cut, tx1 = hx1 - u * 1.5f;
+  const float pageW = fontSize * 0.6f * static_cast<float>(pageText.size() + 1);
+  if (titleFmt)
+    rt->DrawTextW(upper.c_str(), static_cast<UINT32>(upper.size()), titleFmt.get(),
+                  D2D1::RectF(tx0, hy0, std::max(tx0, tx1 - pageW - u), hy1), dark.get(),
+                  D2D1_DRAW_TEXT_OPTIONS_CLIP);
+  if (pageFmt && !pageText.empty())
+    rt->DrawTextW(pageText.c_str(), static_cast<UINT32>(pageText.size()), pageFmt.get(),
+                  D2D1::RectF(tx1 - pageW, hy0, tx1, hy1), dark.get());
+
+  // the page itself (1:1 pixels) with a thin line around it
+  const D2D1_RECT_F img = D2D1::RectF(border, border + header, border + static_cast<float>(w),
+                                      border + header + static_cast<float>(h));
+  rt->DrawBitmap(page.get(), img, 1.0f, D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR);
+  const float g = std::max(1.0f, std::round(u * 0.15f));
+  rt->DrawRectangle(D2D1::RectF(img.left - g, img.top - g, img.right + g, img.bottom + g), dim.get(), g);
+
+  // corner marks at the two square corners (top right, bottom left), like on the HUD panels
+  const float m = 4.0f * u, mw = line * 1.6f;
+  if (outer) rt->DrawGeometry(outer.get(), orange.get(), line);
+  rt->FillRectangle(D2D1::RectF(0, fh - m, mw, fh), orange.get());
+  rt->FillRectangle(D2D1::RectF(0, fh - mw, m, fh), orange.get());
+  rt->FillRectangle(D2D1::RectF(fw - mw, 0, fw, m), orange.get());
+  rt->FillRectangle(D2D1::RectF(fw - m, 0, fw, mw), orange.get());
+  if (FAILED(rt->EndDraw())) return nullptr;
+  return tex;
+}
+
 winrt::com_ptr<ID3D11Texture2D> D3D::CreateTextTexture(const std::wstring& title, const std::wstring& body, uint32_t w,
                                                        uint32_t h) {
   auto tex = CreateTexture(w, h, nullptr, true);

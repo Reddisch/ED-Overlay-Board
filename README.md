@@ -242,6 +242,7 @@ Everything can be set in the settings window; you do not need to edit the file b
 | `rotation` | degrees: `[pitch, yaw, roll]` |
 | `width` | width in meters (the height follows from the aspect ratio) |
 | `opacity` | 0.05 – 1.0, the cockpit shows through the window (works with every runtime, including VDXR) |
+| `frame` | kneeboard (`images`): `false` = plain picture without the frame with title and page number |
 | `transparent` | `false` = opacity switched off (window opaque), toggled by `toggleTransparency` |
 | `tint` | filter color `[r, g, b]` (0 – 1), multiplied onto the content; white = unchanged, e.g. `[1.0, 0.62, 0.25]` = amber |
 | `brightness` | 0.1 – 1.0, dims the content further (works with every runtime, including VDXR) |
@@ -264,6 +265,7 @@ The mirrored window may be behind the game but must **not be minimized**.
 | `toggleInteraction` | lock/unlock grabbing (against moving things by accident) |
 | `toggleMenu` | show/hide the VR menu |
 | `toggleTransparency` | Opacity of the window (or all windows) on/off |
+| `toggleFrame` | Kneeboard frame (title bar with page number) on/off |
 | `toggleKeyboard` | PC keyboard to the program window clicked last in VR / back to the game |
 | `openSettings` | open the settings window on the PC |
 

@@ -26,6 +26,7 @@ const ActionDef kActions[] = {
     {"nextPage", "Nächste Seite", "Next page", true},
     {"prevPage", "Vorherige Seite", "Previous page", true},
     {"toggleTransparency", "Transparenz an/aus", "Transparency on/off", true},
+    {"toggleFrame", "Kneeboard-Rahmen an/aus", "Kneeboard frame on/off", true},
     {"toggleInteraction", "Greifen sperren/entsperren", "Lock/unlock grabbing", false},
     {"toggleMenu", "VR-Menü ein/aus", "VR menu on/off", false},
     {"toggleKeyboard", "PC-Tastatur ins VR-Fenster ein/aus", "PC keyboard into VR window on/off", false},
@@ -440,6 +441,9 @@ void SettingsWindow::DrawWindowsTab() {
                                     "(sliders, scroll bars, selecting text)."));
     }
   } else {
+    if (ImGui::Checkbox(T("Rahmen mit Titel und Seitenzahl###frame", "Frame with title and page number###frame"),
+                        &w.frame))
+      app_.ConfigChanged(false);
     ImGui::InputText(T("Bilderordner###folder", "Image folder###folder"), &w.folder);
     if (ImGui::IsItemDeactivatedAfterEdit()) app_.ConfigChanged(false);
     ImGui::SameLine();
@@ -1067,6 +1071,10 @@ void VrMenu::Draw() {
         app_.ConfigChanged(false);
       }
       ImGui::PopID();
+    }
+    if (w.type == "images") {
+      if (ImGui::Checkbox(T("Rahmen###vrframe", "Frame###vrframe"), &w.frame)) app_.ConfigChanged(false);
+      ImGui::SameLine();
     }
     float pct = w.brightness * 100.0f;
     ImGui::SetNextItemWidth(-FLT_MIN);

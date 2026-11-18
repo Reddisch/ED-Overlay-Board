@@ -31,7 +31,7 @@ bool IsImageFile(const std::filesystem::path& p) {
 }  // namespace
 
 ImageSource::ImageSource(D3D& d3d, const WindowConfig& cfg, const std::filesystem::path& baseDir)
-    : d3d_(d3d), name_(Utf8ToWide(cfg.name)), page_(cfg.page) {
+    : d3d_(d3d), name_(Utf8ToWide(cfg.name)), page_(cfg.page), frame_(cfg.frame) {
   if (!cfg.folder.empty()) {
     folder_ = baseDir / std::filesystem::path(Utf8ToWide(cfg.folder));
     std::error_code ec;
@@ -97,7 +97,9 @@ void ImageSource::LoadCurrent() {
       }
     }
     ok = SUCCEEDED(wic->CreateFormatConverter(converter.put())) &&
-         SUCCEEDED(converter->Initialize(src.get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr,
+         // the frame is drawn with Direct2D, which wants premultiplied alpha
+         SUCCEEDED(converter->Initialize(src.get(), frame_ ? GUID_WICPixelFormat32bppPBGRA : GUID_WICPixelFormat32bppBGRA,
+                                         WICBitmapDitherTypeNone, nullptr,
                                          0.0, WICBitmapPaletteTypeCustom));
   }
 
@@ -108,7 +110,23 @@ void ImageSource::LoadCurrent() {
                                          reinterpret_cast<BYTE*>(pixels.data())));
   }
 
-  if (ok) texture_ = d3d_.CreateTexture(w, h, pixels.data());
+  if (ok && frame_) {
+    const std::wstring pageText =
+        files_.size() > 1 ? std::format(L"{} / {}", page_ + 1, files_.size()) : std::wstring();
+    texture_ = d3d_.CreateFramedTexture(pixels.data(), w, h, name_, pageText);
+    if (!texture_) {  // fall back to the plain picture (convert back to straight alpha)
+      for (auto& p : pixels) {
+        const uint32_t a = p >> 24;
+        if (a == 0 || a == 255) continue;
+        uint32_t c[3];
+        for (int k = 0; k < 3; ++k) c[k] = std::min(255u, (((p >> (8 * k)) & 0xFF) * 255 + a / 2) / a);
+        p = (a << 24) | (c[2] << 16) | (c[1] << 8) | c[0];
+      }
+      texture_ = d3d_.CreateTexture(w, h, pixels.data());
+    }
+  } else if (ok) {
+    texture_ = d3d_.CreateTexture(w, h, pixels.data());
+  }
   if (!ok || !texture_) {
     Log("Images '{}': cannot load {}", WideToUtf8(name_), path.string());
     texture_ = d3d_.CreateTextTexture(name_, T(L"Bild kann nicht geladen werden:\n", L"Cannot load image:\n") +
@@ -145,6 +163,12 @@ void ImageSource::OnClick(float x, float /*y*/) {
     NextPage();
   else
     PrevPage();
+}
+
+void ImageSource::SetFrame(bool enabled) {
+  if (enabled == frame_) return;
+  frame_ = enabled;
+  dirty_ = true;
 }
 
 void ImageSource::NextPage() {

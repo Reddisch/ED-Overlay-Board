@@ -18,6 +18,7 @@ class ImageSource : public ContentSource {
   void OnClick(float x, float y) override;
   void NextPage() override;
   void PrevPage() override;
+  void SetFrame(bool enabled) override;
   int Page() const override { return page_; }
   std::string Status() const override;
 
@@ -31,6 +32,7 @@ class ImageSource : public ContentSource {
   std::vector<std::filesystem::path> explicit_;
   std::vector<std::filesystem::path> files_;
   int page_ = 0;
+  bool frame_ = true;
   bool dirty_ = true;
   bool textEnglish_ = false;  // language of the "no images" text
   winrt::com_ptr<ID3D11Texture2D> texture_;

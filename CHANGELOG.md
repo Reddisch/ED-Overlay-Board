@@ -9,6 +9,9 @@
 - No pointer dot on program windows that are not clickable (only moved with the controller /
   joystick); kneeboard pages keep it (where you click turns the page). IPC v11: update app and
   restart Elite
+- Kneeboard pages in a panel frame like the VR menu: dark panel with chamfered corners, orange outline
+  and a header bar with the window name and the page number. Per-window switch `frame` (settings, VR
+  menu "Window look"), action `toggleFrame`
 
 ## 0.7.0
 

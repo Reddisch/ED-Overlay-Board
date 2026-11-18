@@ -413,7 +413,10 @@ void App::SyncShared() {
     // (kneeboard pages keep it: where you click turns the page)
     w.pointerDot = mouse || c.type != "window";
     w.keyboardFocus = static_cast<int>(i) == keyboardSlot_;
-    if (s.source && !s.internal) s.source->SetSwipe(c.dragScroll, std::clamp(cfg_.swipeSpeed, 0.05f, 10.0f));
+    if (s.source && !s.internal) {
+      s.source->SetSwipe(c.dragScroll, std::clamp(cfg_.swipeSpeed, 0.05f, 10.0f));
+      s.source->SetFrame(c.frame);
+    }
     if (s.mouse && !mouse && s.source) {  // switched off while in use: release the button
       s.source->SetPointer(false, 0.0f, 0.0f);
       s.source->AddButton(false);
@@ -547,6 +550,14 @@ void App::Execute(const BindingConfig& b) {
       s.pending = true;
     });
     Log("Transparency {}{}", anyOn ? "off" : "on", b.window.empty() ? "" : " for '" + b.window + "'");
+    MarkDirty();
+  } else if (b.action == "toggleFrame") {
+    bool anyOn = false;
+    forTargets([&](Slot& s) { anyOn |= s.cfg->type == "images" && s.cfg->frame; });
+    forTargets([&](Slot& s) {
+      if (s.cfg->type == "images") s.cfg->frame = !anyOn;
+    });
+    Log("Kneeboard frame {}", anyOn ? "off" : "on");
     MarkDirty();
   } else if (b.action == "toggleInteraction") {
     interactionEnabled_ = !interactionEnabled_;
