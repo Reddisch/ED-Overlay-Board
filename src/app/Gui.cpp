@@ -1082,6 +1082,18 @@ void VrMenu::Draw() {
       w.brightness = pct / 100.0f;
       app_.ConfigChanged(false);
     }
+    // opacity: switch + slider (the slider is greyed out while transparency is off)
+    if (ImGui::Checkbox(T("Transparenz###vrtransp", "Transparency###vrtransp"), &w.transparent))
+      app_.ConfigChanged(false);
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!w.transparent);
+    float op = w.opacity * 100.0f;
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::SliderFloat("##vropacity", &op, 5.0f, 100.0f, T("Deckkraft %.0f %%", "Opacity %.0f %%"))) {
+      w.opacity = op / 100.0f;
+      app_.ConfigChanged(false);
+    }
+    ImGui::EndDisabled();
     // show effect: one button per effect, the active one highlighted
     const char* effects[] = {T("Kein Effekt", "No effect"), T("Hologramm", "Hologram"), "Zoom",
                              T("Röhren-TV", "CRT TV")};
