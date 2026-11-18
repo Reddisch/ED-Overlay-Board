@@ -94,6 +94,11 @@ It only shows something while the companion app is running. App and layer must b
 1. Download `EDOverlayBoard-Setup-<version>.exe` from the Releases page and run it.
    No administrator rights are needed: it installs to `%LOCALAPPDATA%\Programs\ED Overlay Board`
    and registers the OpenXR layer for your user. Optional: desktop shortcut and "Start with Windows".
+
+   > **Windows warns "Windows protected your PC"?** Click **More info** → **Run anyway**.
+   > The warning (Microsoft Defender SmartScreen) appears because the installer has no paid code signing
+   > certificate and is new to Microsoft – not because something is wrong with it. The source code is
+   > public in this repository and the installer is built from it by GitHub Actions.
 2. ED Overlay Board then runs in the notification area of the taskbar (tray icon).
 3. Start Elite – the windows appear in front of you. The *Status* tab then shows "Connected to …".
 
@@ -101,9 +106,6 @@ After an update, restart the app and Elite.
 
 Uninstall via Windows Settings → Apps. This unregisters the layer; `config.json` and your pictures
 stay in the installation folder.
-
-Windows SmartScreen may warn on the first start because the installer is not signed
-("More info" → "Run anyway").
 
 **Without the installer (ZIP):** extract the release ZIP (e.g. to `C:\Tools\EDOverlayBoard`) and start
 `EDOverlayBoard.exe`. On the first start it registers the layer and creates `config.json` from

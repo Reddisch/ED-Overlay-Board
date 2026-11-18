@@ -12,6 +12,11 @@
 
 App und Layer ändern sich (neue Schnittstelle): nach dem Update App und Elite neu starten.
 
+**Installation:** `EDOverlayBoard-Setup-<Version>.exe` herunterladen und ausführen. Meldet Windows
+„Der Computer wurde durch Windows geschützt“: **Weitere Informationen** → **Trotzdem ausführen**.
+Der Installer ist nicht kostenpflichtig signiert; er wird von GitHub Actions aus dem öffentlichen
+Quellcode gebaut.
+
 ## New in 0.8.0
 
 - **Transparent windows, now also with VDXR:** the opacity is written into the picture itself and so
@@ -25,3 +30,7 @@ App und Layer ändern sich (neue Schnittstelle): nach dem Update App und Elite n
   window (settings, VR menu) and with the action `toggleFrame`.
 
 App and layer change (new interface): restart the app and Elite after updating.
+
+**Installation:** download and run `EDOverlayBoard-Setup-<version>.exe`. If Windows says
+"Windows protected your PC": **More info** → **Run anyway**. The installer has no paid code signing
+certificate; GitHub Actions builds it from the public source code.
