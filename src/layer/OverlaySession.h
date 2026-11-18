@@ -73,6 +73,7 @@ class OverlaySession {
     bool gazeShown = true;  // currently looked at (or lookToShow disabled)
     bool interactive = false;  // the VR menu (visible even while all windows are hidden, follows the head)
     bool mouse = false;        // trigger/pinch act as a mouse (VR menu, clickable programs)
+    bool pointerDot = true;    // draw the pointer dot while aiming at it
     float headerFraction = 0.0f;
     bool summonPending = false;
     bool followValid = false;  // VR menu: followDir is set (reset while hidden -> snaps in front)

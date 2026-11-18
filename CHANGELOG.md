@@ -5,7 +5,10 @@
 - Transparent windows that also work with VDXR: the opacity is now baked into the alpha of the
   texture (same shader as the filter color) instead of relying on
   `XR_KHR_composition_layer_color_scale_bias`. New per-window switch `transparent`, action
-  `toggleTransparency` (one window or all) and a button in the VR menu. App only, no IPC change
+  `toggleTransparency` (one window or all) and a button in the VR menu
+- No pointer dot on program windows that are not clickable (only moved with the controller /
+  joystick); kneeboard pages keep it (where you click turns the page). IPC v11: update app and
+  restart Elite
 
 ## 0.7.0
 

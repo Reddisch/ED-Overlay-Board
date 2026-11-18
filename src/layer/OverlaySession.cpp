@@ -308,6 +308,7 @@ void OverlaySession::SyncIpc() {
     w.lookToShow = sw.lookToShow;
     w.interactive = sw.interactive;
     w.mouse = sw.mouseInput != 0;
+    w.pointerDot = sw.pointerDot != 0;
     w.headerFraction = sw.headerFraction;
     w.keyboardFocus = sw.keyboardFocus != 0;
     w.opacity = sw.opacity;
@@ -1070,7 +1071,7 @@ void OverlaySession::BuildLayers(const XrFrameEndInfo* info) {
   if (showCursor_)
     for (int h = 0; h < 2; ++h) {
       const Hover& hv = hover_[h];
-      if (hv.window < 0 || grabs_[h].window >= 0) continue;
+      if (hv.window < 0 || grabs_[h].window >= 0 || !windows_[hv.window].pointerDot) continue;
       if (h == 1 && headAim_ && hover_[0].window == hv.window && grabs_[0].window < 0) continue;  // same dot
       Vec3 at = hv.local;
       at.z += 0.004f;
