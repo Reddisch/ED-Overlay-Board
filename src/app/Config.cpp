@@ -47,6 +47,8 @@ bool WindowConfig::Tinted() const {
   return f[0] < 0.999f || f[1] < 0.999f || f[2] < 0.999f;
 }
 
+float WindowConfig::EffectiveOpacity() const { return transparent ? std::clamp(opacity, 0.05f, 1.0f) : 1.0f; }
+
 bool AppConfig::Load(const std::filesystem::path& path) {
   file = path;
   std::ifstream in(path);
@@ -127,6 +129,7 @@ bool AppConfig::Load(const std::filesystem::path& path) {
       c.rotation = ReadVec3(w, "rotation", c.rotation);
       c.width = w.value("width", c.width);
       c.opacity = w.value("opacity", c.opacity);
+      c.transparent = w.value("transparent", c.transparent);
       c.tint[0] = c.tint[1] = c.tint[2] = 1.0f;
       if (w.contains("tint") && w["tint"].is_array() && w["tint"].size() == 3)
         for (int i = 0; i < 3; ++i) c.tint[i] = w["tint"][i].get<float>();
@@ -219,6 +222,7 @@ bool AppConfig::Save() {
     w["rotation"] = Vec3Json(c.rotation, 0.1);
     w["width"] = Round(c.width, 0.001);
     if (c.opacity < 0.999f) w["opacity"] = Round(c.opacity, 0.01);
+    if (!c.transparent) w["transparent"] = false;
     if (c.tint[0] < 0.999f || c.tint[1] < 0.999f || c.tint[2] < 0.999f)
       w["tint"] = json::array({Round(c.tint[0], 0.001), Round(c.tint[1], 0.001), Round(c.tint[2], 0.001)});
     if (c.brightness < 0.999f) w["brightness"] = Round(c.brightness, 0.01);

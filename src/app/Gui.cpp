@@ -25,6 +25,7 @@ const ActionDef kActions[] = {
     {"toggleWindow", "Fenster ein/aus", "Window on/off", true},
     {"nextPage", "Nächste Seite", "Next page", true},
     {"prevPage", "Vorherige Seite", "Previous page", true},
+    {"toggleTransparency", "Transparenz an/aus", "Transparency on/off", true},
     {"toggleInteraction", "Greifen sperren/entsperren", "Lock/unlock grabbing", false},
     {"toggleMenu", "VR-Menü ein/aus", "VR menu on/off", false},
     {"toggleKeyboard", "PC-Tastatur ins VR-Fenster ein/aus", "PC keyboard into VR window on/off", false},
@@ -459,10 +460,22 @@ void SettingsWindow::DrawWindowsTab() {
     w.lookToShow = look - 1;
     app_.ConfigChanged(false);
   }
-  if (ImGui::SliderFloat(T("Deckkraft###opacity", "Opacity###opacity"), &w.opacity, 0.05f, 1.0f, "%.2f"))
+  if (ImGui::Checkbox(T("Transparenz###transparent", "Transparency###transparent"), &w.transparent))
     app_.ConfigChanged(false);
-  ImGui::SetItemTooltip("%s", T("Nur wirksam, wenn die OpenXR-Runtime das unterstützt (VDXR derzeit nicht).",
-                                "Only works if the OpenXR runtime supports it (VDXR currently does not)."));
+  ImGui::SetItemTooltip("%s", T("Schaltet die Deckkraft ein/aus (auch per Taste: Aktion \"Transparenz an/aus\").",
+                                "Switches the opacity on/off (also by key: action \"Transparency on/off\")."));
+  ImGui::SameLine();
+  ImGui::BeginDisabled(!w.transparent);
+  {
+    float pct = w.opacity * 100.0f;
+    if (ImGui::SliderFloat(T("Deckkraft###opacity", "Opacity###opacity"), &pct, 5.0f, 100.0f, "%.0f %%")) {
+      w.opacity = pct / 100.0f;
+      app_.ConfigChanged(false);
+    }
+  }
+  ImGui::EndDisabled();
+  ImGui::SetItemTooltip("%s", T("Das Cockpit scheint durch das Fenster (funktioniert mit jeder Runtime, auch VDXR).",
+                                "The cockpit shows through the window (works with every runtime, including VDXR)."));
   if (ImGui::Combo(T("Einblendeffekt###effect", "Show effect###effect"), &w.showEffect,
                    T("Keiner\0Hologramm\0Zoom\0Röhren-TV\0", "None\0Hologram\0Zoom\0CRT TV\0"))) {
     app_.ConfigChanged(false);
@@ -1090,6 +1103,15 @@ void VrMenu::Draw() {
   const char* lock =
       app_.InteractionEnabled() ? T("Sperren###lock", "Lock###lock") : T("Entsperren###lock", "Unlock###lock");
   if (ImGui::Button(lock, {third, 0})) app_.Do("toggleInteraction");
+  {
+    const bool on = app_.AnyTransparent();
+    if (on) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.55f, 0.85f, 1.0f));
+    if (ImGui::Button(on ? T("Transparenz aus###transp", "Transparency off###transp")
+                         : T("Transparenz an###transp", "Transparency on###transp"),
+                      {-FLT_MIN, 0}))
+      app_.Do("toggleTransparency");
+    if (on) ImGui::PopStyleColor();
+  }
   {  // PC keyboard into the program window clicked last
     const std::string kbWindow = app_.KeyboardWindow();
     std::string label = kbWindow.empty()

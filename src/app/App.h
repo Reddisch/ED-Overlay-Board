@@ -51,6 +51,7 @@ class App {
   const VrStatus& Status() const { return vrStatus_; }
   bool InteractionEnabled() const { return interactionEnabled_; }
   bool AllHidden() const { return allHidden_; }
+  bool AnyTransparent() const;  // some window has transparency switched on (and opacity < 1)
   bool MenuVisible() const;
   // PC keyboard into a VR window: name of the window receiving the keys, "" = off
   std::string KeyboardWindow() const;
@@ -98,6 +99,7 @@ class App {
     int want = -1;       // visible by config / "hide all" (-1 = not known yet)
     uint64_t wantChangedAt = 0;  // GetTickCount64() of the last change of `want`
     int seenShown = -1;  // drawn in VR according to the layer (-1 = not known)
+    float publishedAlpha = 1.0f;  // opacity baked into the shared texture
   };
 
   bool Init();

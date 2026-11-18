@@ -242,7 +242,8 @@ Alles lässt sich im Einstellungsfenster einstellen; die Datei muss man nicht vo
 | `position` | Meter relativ zur zentrierten Kopfposition: x = rechts, y = oben, −z = vorne |
 | `rotation` | Grad: `[Neigung, Drehung, Rollen]` |
 | `width` | Breite in Metern (Höhe ergibt sich aus dem Seitenverhältnis) |
-| `opacity` | 0.05 – 1.0 (wenn die Runtime `XR_KHR_composition_layer_color_scale_bias` kann) |
+| `opacity` | 0.05 – 1.0, das Cockpit scheint durch das Fenster (funktioniert mit jeder Runtime, auch VDXR) |
+| `transparent` | `false` = Deckkraft ausgeschaltet (Fenster deckend), umschaltbar mit `toggleTransparency` |
 | `tint` | Filterfarbe `[r, g, b]` (0 – 1), wird auf den Inhalt multipliziert; Weiß = unverändert, z. B. `[1.0, 0.62, 0.25]` = Bernstein |
 | `brightness` | 0.1 – 1.0, dunkelt den Inhalt zusätzlich ab (funktioniert mit jeder Runtime, auch VDXR) |
 | `effect` | Einblendeffekt: `none`, `hologram`, `zoom` oder `tv` (läuft auch beim Ausblenden und beim Hin-/Wegsehen) |
@@ -263,6 +264,7 @@ Das gespiegelte Fenster darf hinter dem Spiel liegen, aber **nicht minimiert** s
 | `nextPage` / `prevPage` | Kneeboard-Seite blättern (`window`, leer = alle) |
 | `toggleInteraction` | Greifen sperren/entsperren (gegen versehentliches Verschieben) |
 | `toggleMenu` | VR-Menü ein-/ausblenden |
+| `toggleTransparency` | Deckkraft des Fensters (oder aller Fenster) an/aus |
 | `toggleKeyboard` | PC-Tastatur an das zuletzt angeklickte Programmfenster im VR / zurück an das Spiel |
 | `openSettings` | Einstellungsfenster am PC öffnen |
 

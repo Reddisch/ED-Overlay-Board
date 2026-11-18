@@ -72,9 +72,10 @@ winrt::com_ptr<ID3D11Texture2D> D3D::CreateTexture(uint32_t w, uint32_t h, const
 }
 
 namespace {
-// Full-screen triangle; the pixel shader multiplies the color channels, alpha stays.
+// Full-screen triangle; the pixel shader multiplies the color channels and the alpha
+// (unpremultiplied: the layer submits these quads with UNPREMULTIPLIED_ALPHA).
 constexpr char kTintHlsl[] = R"(
-cbuffer Tint : register(b0) { float4 tint; };
+cbuffer Tint : register(b0) { float4 tint; float4 opts; };  // opts.x = 1: ignore source alpha
 Texture2D<float4> src : register(t0);
 float4 vs(uint id : SV_VertexID) : SV_Position {
   float2 uv = float2((id << 1) & 2, id & 2);
@@ -82,7 +83,7 @@ float4 vs(uint id : SV_VertexID) : SV_Position {
 }
 float4 ps(float4 pos : SV_Position) : SV_Target {
   float4 c = src.Load(int3(pos.xy, 0));
-  return float4(c.rgb * tint.rgb, c.a);
+  return float4(c.rgb * tint.rgb, lerp(c.a, 1, opts.x) * tint.a);
 }
 )";
 
@@ -99,7 +100,8 @@ winrt::com_ptr<ID3DBlob> Compile(const char* entry, const char* target) {
 }
 }  // namespace
 
-bool D3D::CopyTinted(ID3D11Texture2D* dst, ID3D11Texture2D* src, const float rgb[3]) {
+bool D3D::CopyTinted(ID3D11Texture2D* dst, ID3D11Texture2D* src, const float rgb[3], float alpha,
+                     bool ignoreSrcAlpha) {
   if (!tintInit_) {
     tintInit_ = true;
     auto vs = Compile("vs", "vs_5_0");
@@ -107,7 +109,7 @@ bool D3D::CopyTinted(ID3D11Texture2D* dst, ID3D11Texture2D* src, const float rgb
     if (vs) device_->CreateVertexShader(vs->GetBufferPointer(), vs->GetBufferSize(), nullptr, tintVs_.put());
     if (ps) device_->CreatePixelShader(ps->GetBufferPointer(), ps->GetBufferSize(), nullptr, tintPs_.put());
     D3D11_BUFFER_DESC bd{};
-    bd.ByteWidth = 16;
+    bd.ByteWidth = 32;
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     device_->CreateBuffer(&bd, nullptr, tintCb_.put());
@@ -121,7 +123,7 @@ bool D3D::CopyTinted(ID3D11Texture2D* dst, ID3D11Texture2D* src, const float rgb
 
   D3D11_TEXTURE2D_DESC d{};
   dst->GetDesc(&d);
-  const float cb[4] = {rgb[0], rgb[1], rgb[2], 1.0f};
+  const float cb[8] = {rgb[0], rgb[1], rgb[2], alpha, ignoreSrcAlpha ? 1.0f : 0.0f, 0, 0, 0};
   auto* ctx = context_.get();
   ctx->UpdateSubresource(tintCb_.get(), 0, nullptr, cb, 0, 0);
 

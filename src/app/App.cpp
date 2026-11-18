@@ -353,11 +353,17 @@ bool App::Publish(Slot& s, ID3D11Texture2D* src) {
   }
 
   if (s.mutex->AcquireSync(0, 5) != S_OK) return false;  // the layer is copying right now; retry next tick
-  // filter color (dims bright pictures); the VR menu is never tinted
+  // filter color (dims bright pictures) and opacity (baked into the alpha, so it works
+  // without XR_KHR_composition_layer_color_scale_bias, e.g. with VDXR); never for the VR menu
   float tint[3];
   s.cfg->TintFactor(tint);
-  if (s.internal || !s.cfg->Tinted() || !d3d_.CopyTinted(s.shared.get(), src, tint))
+  const float alpha = s.cfg->EffectiveOpacity();
+  s.publishedAlpha = alpha;
+  if (s.internal || (!s.cfg->Tinted() && alpha >= 0.999f) ||
+      !d3d_.CopyTinted(s.shared.get(), src, tint, alpha, s.cfg->type != "images")) {
     d3d_.Context()->CopyResource(s.shared.get(), src);
+    s.publishedAlpha = 1.0f;
+  }
   s.mutex->ReleaseSync(0);
   d3d_.Context()->Flush();
   ++s.version;
@@ -396,7 +402,8 @@ void App::SyncShared() {
     w.active = 1;
     w.visible = s.internal ? c.visible : c.visible && !HeldBack();
     w.locked = c.locked;
-    w.opaque = c.type != "images";
+    // opacity is in the texture alpha: the layer blends with it (and must not fade a second time)
+    w.opaque = c.type != "images" && (s.internal || s.publishedAlpha >= 0.999f);
     w.lookToShow = s.internal ? 0 : (c.lookToShow < 0 ? cfg_.lookToShow : c.lookToShow == 1);
     w.interactive = s.internal;
     // VR menu and clickable program windows: trigger/pinch act as a mouse (click, drag, wheel)
@@ -411,7 +418,7 @@ void App::SyncShared() {
     s.mouse = mouse;
     w.summonOnShow = s.internal;
     w.headerFraction = 0.0f;  // the VR menu follows the head: no grab zone
-    w.opacity = std::clamp(c.opacity, 0.05f, 1.0f);
+    w.opacity = 1.0f;
     w.showEffect = s.internal ? 0u : static_cast<uint32_t>(std::clamp(c.showEffect, 0, int(ipc::kEffectCount) - 1));
     w.texWidth = s.width;
     w.texHeight = s.height;
@@ -528,6 +535,16 @@ void App::Execute(const BindingConfig& b) {
   } else if (b.action == "prevPage") {
     forTargets([](Slot& s) { s.source->PrevPage(); });
     MarkDirty();
+  } else if (b.action == "toggleTransparency") {
+    // several targets: all off if any is on, otherwise all on
+    bool anyOn = false;
+    forTargets([&](Slot& s) { anyOn |= s.cfg->EffectiveOpacity() < 0.999f; });
+    forTargets([&](Slot& s) {
+      s.cfg->transparent = !anyOn;
+      s.pending = true;
+    });
+    Log("Transparency {}{}", anyOn ? "off" : "on", b.window.empty() ? "" : " for '" + b.window + "'");
+    MarkDirty();
   } else if (b.action == "toggleInteraction") {
     interactionEnabled_ = !interactionEnabled_;
     Log("{}", interactionEnabled_ ? "Interaction enabled." : "Interaction disabled (windows locked).");
@@ -548,6 +565,12 @@ void App::Execute(const BindingConfig& b) {
 }
 
 bool App::MenuVisible() const { return menuCfg_.visible; }
+
+bool App::AnyTransparent() const {
+  for (const auto& s : slots_)
+    if (!s.internal && s.cfg->EffectiveOpacity() < 0.999f) return true;
+  return false;
+}
 
 std::string App::MirrorStatus() const { return mirrorStatus_; }
 
