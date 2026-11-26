@@ -48,6 +48,24 @@ Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculu
   Streamen / Aufnehmen – im Spiegelfenster von Elite sind sie nicht zu sehen (siehe unten)
 - Layout wird automatisch gespeichert, Zeiger-Cursor, Rahmen beim Anvisieren, Haptik
 
+## Starter (Elite + VR-Modus + Helfer-Programme)
+
+`EDOverlayBoardStarter.exe` (Startmenü: *ED Overlay Board Starter*) startet alles für eine Runde mit einem Klick:
+
+- **VR-Modus:** Desktop, Virtual Desktop (VDXR), SteamVR, Meta Horizon Link oder jede andere OpenXR-Runtime. Der
+  Starter stellt bei Bedarf die aktive OpenXR-Runtime um (Windows fragt einmal nach Admin-Rechten, nur wenn eine
+  andere Runtime aktiv ist) und startet das passende VR-Programm (VD Streamer, SteamVR, Meta-Horizon-Link-App).
+- **Programme:** beliebig viele Einträge mit Pfad, Argumenten, Arbeitsordner, Verzögerung, Zeitlimit und
+  An/Aus-Haken: Elite, ED Overlay Board, VoiceAttack, EDCoPilot, ... Einträge mit *Erst starten, wenn der VR-Modus
+  bereit ist* (Elite von Haus aus) warten, bis die Runtime umgestellt ist und das VR-Programm läuft. Was schon
+  läuft, wird nicht doppelt gestartet; bei Programmen, die über einen Starter laufen (Elite über `steam.exe`),
+  lassen sich die gesuchten Prozessnamen (`EliteDangerous64, EDLaunch`) oder ein Teil des Fenstertitels angeben.
+- Beim ersten Start erkennt er Steam, Elite, die installierten OpenXR-Runtimes, VoiceAttack und EDCoPilot. Alles
+  lässt sich in den Reitern *Programme* und *VR-Modi* ändern; gespeichert wird in `starter.json`.
+- *Desktop-Verknüpfung für diesen Modus* (Reiter *VR-Modi*) legt eine Verknüpfung wie `Elite - SteamVR` an, die
+  sofort alles startet. Befehlszeile: `EDOverlayBoardStarter.exe --start --mode "SteamVR"`.
+- Ob die Brille wirklich verbunden ist (Link, VD), kann der Starter nicht sehen; vor dem Elite-Start verbinden.
+
 ## Passende Programme
 
 Programme, die fürs Spiegeln ins Cockpit mit ED Overlay Board gemacht sind (jeweils mit eigenem VR-Fenster und
@@ -350,6 +368,7 @@ src/app/      Begleit-App
   Config.*, D3D.*          config.json, D3D11, Platzhalter-Panels, Filterfarbe (Shader)
   Gui.*                    Einstellungsfenster und VR-Menü (Dear ImGui)
   Sounds.*                 Klick- und Ein-/Ausblendgeräusche
+src/starter/  Starter (EDOverlayBoardStarter.exe): VR-Modus / OpenXR-Runtime umstellen, Programmliste, Fenster
 src/layer/    OpenXR-API-Layer (DLL)
   Layer.cpp                Loader-Verhandlung, abgefangene OpenXR-Funktionen
   OverlaySession.*         Swapchains, Quad-Layer, Greifen/Skalieren/Zentrieren

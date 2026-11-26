@@ -116,8 +116,24 @@ target_compile_definitions(EDOverlayBoard_Layer PRIVATE ${COMMON_DEFS}
 target_compile_options(EDOverlayBoard_Layer PRIVATE ${COMMON_OPTS})
 target_link_libraries(EDOverlayBoard_Layer PRIVATE d3d11 dxgi d3dcompiler)
 
-# Put the app, the layer DLL, its manifest and the resources into one folder
-set_target_properties(EDOverlayBoard EDOverlayBoard_Layer PROPERTIES
+# ---------------------------------------------------------------------------
+# Starter: VR mode (OpenXR runtime switch) + Elite + helper programs in one click
+# ---------------------------------------------------------------------------
+add_executable(EDOverlayBoardStarter
+  src/starter/main.cpp
+  src/starter/Starter.cpp
+  src/starter/starter.rc
+  src/common/Log.cpp
+)
+set_target_properties(EDOverlayBoardStarter PROPERTIES WIN32_EXECUTABLE TRUE)
+target_link_options(EDOverlayBoardStarter PRIVATE /ENTRY:wmainCRTStartup)
+target_include_directories(EDOverlayBoardStarter PRIVATE src/starter src/app src/common "${JSON_DIR}/include")
+target_compile_definitions(EDOverlayBoardStarter PRIVATE ${COMMON_DEFS})
+target_compile_options(EDOverlayBoardStarter PRIVATE ${COMMON_OPTS})
+target_link_libraries(EDOverlayBoardStarter PRIVATE imgui d3d11 dxgi advapi32 shell32 ole32 user32)
+
+# Put the app, the starter, the layer DLL, its manifest and the resources into one folder
+set_target_properties(EDOverlayBoard EDOverlayBoardStarter EDOverlayBoard_Layer PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<CONFIG>")
 add_custom_command(TARGET EDOverlayBoard POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/resources/EDOverlayBoard_Layer.json" "$<TARGET_FILE_DIR:EDOverlayBoard>"
@@ -126,6 +142,6 @@ add_custom_command(TARGET EDOverlayBoard POST_BUILD
   VERBATIM)
 add_dependencies(EDOverlayBoard EDOverlayBoard_Layer)
 
-install(TARGETS EDOverlayBoard EDOverlayBoard_Layer RUNTIME DESTINATION .)
+install(TARGETS EDOverlayBoard EDOverlayBoardStarter EDOverlayBoard_Layer RUNTIME DESTINATION .)
 install(FILES resources/EDOverlayBoard_Layer.json README.md README.de.md LICENSE DESTINATION .)
 install(FILES resources/config.example.json DESTINATION resources)
