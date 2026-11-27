@@ -122,6 +122,7 @@ target_link_libraries(EDOverlayBoard_Layer PRIVATE d3d11 dxgi d3dcompiler)
 add_executable(EDOverlayBoardStarter
   src/starter/main.cpp
   src/starter/Starter.cpp
+  src/starter/Speech.cpp
   src/starter/starter.rc
   src/common/Log.cpp
 )
@@ -130,7 +131,7 @@ target_link_options(EDOverlayBoardStarter PRIVATE /ENTRY:wmainCRTStartup)
 target_include_directories(EDOverlayBoardStarter PRIVATE src/starter src/app src/common "${JSON_DIR}/include")
 target_compile_definitions(EDOverlayBoardStarter PRIVATE ${COMMON_DEFS})
 target_compile_options(EDOverlayBoardStarter PRIVATE ${COMMON_OPTS})
-target_link_libraries(EDOverlayBoardStarter PRIVATE imgui d3d11 dxgi advapi32 shell32 ole32 user32)
+target_link_libraries(EDOverlayBoardStarter PRIVATE imgui d3d11 dxgi advapi32 shell32 ole32 user32 sapi)
 
 # Put the app, the starter, the layer DLL, its manifest and the resources into one folder
 set_target_properties(EDOverlayBoard EDOverlayBoardStarter EDOverlayBoard_Layer PROPERTIES

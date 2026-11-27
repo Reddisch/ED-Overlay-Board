@@ -7,6 +7,7 @@
 #include <atomic>
 #include <chrono>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
@@ -39,7 +40,8 @@ struct StarterConfig {
   std::string mode;       // name of the selected VR mode
   bool closeWhenDone = true;
   bool compact = false;      // big mode buttons only, small window (easy to hit in a VR desktop view)
-  bool alwaysOnTop = false;  // stays in front of other windows until everything runs
+  bool alwaysOnTop = false;  // stays in front of other windows until a start is clicked
+  bool speech = false;       // Windows speech output says what happens
   std::vector<VrMode> modes;
   std::vector<ProgramEntry> programs;
 
@@ -59,6 +61,13 @@ std::string ExpandPath(const std::string& s);  // %VARS% expanded, quotes remove
 enum class StepState { Waiting, Starting, Ok, Already, Failed, Cancelled };
 enum class StepKind { Runtime, VrProgram, Program };
 
+// Result of a ShellExecuteEx done on a worker thread (opening steam:// or a .lnk can block for
+// seconds; the window must keep drawing meanwhile).
+struct LaunchResult {
+  std::atomic<bool> done{false};
+  DWORD error = 0;  // valid once done
+};
+
 struct Step {
   StepKind kind = StepKind::Program;
   int program = -1;   // index into StarterConfig::programs (kind == Program)
@@ -70,6 +79,7 @@ struct Step {
   StepState state = StepState::Waiting;
   std::string error;  // why it failed
   double startedAt = 0;
+  std::shared_ptr<LaunchResult> launch;  // set while ShellExecuteEx still runs
 };
 
 class Runner {

@@ -1,6 +1,7 @@
 // ED Overlay Board Starter - window, settings tabs and command line.
 #include "Lang.h"
 #include "Log.h"
+#include "Speech.h"
 #include "Starter.h"
 #include "Util.h"
 
@@ -17,6 +18,7 @@
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <format>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -135,6 +137,14 @@ class StarterApp {
   int forceTab_ = -1;  // EDOB_STARTER_TAB=0/1/2: open on that tab (screenshots for the docs/tests)
   bool layoutDirty_ = false;  // compact view switched: resize + center the window
   bool topmost_ = false;
+  bool focusHandedOver_ = false;  // game window got the focus after this start
+  bool FocusGame();
+  void StartRun();
+  void Announce();
+  bool SpeechCheckbox();
+  Speech speech_;
+  std::vector<StepState> spoken_;  // step states already announced
+  bool announcedDone_ = true;
   float compactH_ = 0;        // content height of the compact view (window follows it)
 };
 
@@ -285,7 +295,7 @@ LRESULT CALLBACK StarterApp::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
 }
 
 int StarterApp::Run() {
-  if (autoStart_) runner_.Start(cfg_, hwnd_);
+  if (autoStart_) StartRun();
   MSG msg{};
   for (;;) {
     while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -300,6 +310,7 @@ int StarterApp::Run() {
       DispatchMessageW(&msg);
     }
     runner_.Tick();
+    Announce();
     UpdateTopmost();
     // a minimised or background window without a running start does not need 60 frames per second
     if (IsIconic(hwnd_) || (GetForegroundWindow() != hwnd_ && !runner_.Busy()))
@@ -376,9 +387,12 @@ void StarterApp::ApplyLayout(bool center) {
   SetWindowPos(hwnd_, nullptr, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-// "Always on top" only until everything runs, so the starter never covers Elite afterwards.
+// "Always on top" only until START is clicked: it is there to find the buttons. Staying in front
+// while Elite starts would keep the focus away from the game (no controller input in VR).
 void StarterApp::UpdateTopmost() {
-  const bool want = cfg_.alwaysOnTop && !(runner_.Started() && !runner_.Busy());
+  const bool want = cfg_.alwaysOnTop && !runner_.Started();
+  if (runner_.Busy()) focusHandedOver_ = false;
+  else if (runner_.Started() && !focusHandedOver_ && runner_.SinceDone() < 60) focusHandedOver_ = FocusGame();
   if (want == topmost_) return;
   topmost_ = want;
   SetWindowPos(hwnd_, want ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
@@ -453,7 +467,9 @@ void StarterApp::StatusText(const Step& s) {
                                                                    : T("lief schon", "was running"));
       break;
     case StepState::Failed:
+      ImGui::PushTextWrapPos(0);  // long Windows error texts wrap instead of being cut off
       ImGui::TextColored(kRed, "%s", s.error.empty() ? T("Fehler", "failed") : s.error.c_str());
+      ImGui::PopTextWrapPos();
       if (ImGui::IsItemHovered() && !s.error.empty()) ImGui::SetTooltip("%s", s.error.c_str());
       break;
     case StepState::Cancelled:
@@ -544,7 +560,7 @@ void StarterApp::DrawStart() {
     ImGui::TextColored(kMuted, "%s %.0f s", T("seit Start", "since start"), runner_.Elapsed());
   } else {
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.55f, 0.1f, 0.65f));
-    if (ImGui::Button(T("STARTEN", "START"), big)) runner_.Start(cfg_, hwnd_);
+    if (ImGui::Button(T("STARTEN", "START"), big)) StartRun();
     ImGui::PopStyleColor();
     if (runner_.Started()) {
       ImGui::SameLine();
@@ -568,6 +584,8 @@ void StarterApp::DrawStart() {
     ImGui::SetTooltip("%s", T("Kleines Fenster mit einem großen Knopf pro VR-Modus, mittig auf dem Hauptmonitor.",
                               "Small window with one big button per VR mode, centered on the main monitor."));
   ImGui::SameLine();
+  SpeechCheckbox();
+  ImGui::SameLine();
   int lang = i18n::English() ? 1 : 0;
   ImGui::SetNextItemWidth(220 * scale_);
   if (ImGui::SliderInt("##lang", &lang, 0, 1, lang ? "Language: English" : "Sprache: Deutsch") &&
@@ -575,6 +593,126 @@ void StarterApp::DrawStart() {
     cfg_.language = lang ? "en" : "de";
     i18n::Apply(cfg_.language);
     Save();
+  }
+}
+
+// After a start: hand the focus to the game (the program that waits for VR, i.e. Elite), so it
+// gets keyboard and VR controller input even if the starter was clicked last. Returns false while
+// the game window does not exist yet (called again until it does, at most 60 s).
+bool StarterApp::FocusGame() {
+  std::wstring name;
+  for (auto& s : runner_.Steps()) {
+    if (s.kind != StepKind::Program || !s.needsVr) continue;
+    if (s.state != StepState::Ok && s.state != StepState::Already) continue;
+    std::wstring list = Utf8ToWide(s.processes);
+    name = list.substr(0, list.find(L','));  // the first name is the game itself (then e.g. EDLaunch)
+    if (name.find_first_not_of(L" \t") == std::wstring::npos) name = fs::path(Utf8ToWide(ExpandPath(s.path))).filename();
+    break;
+  }
+  name.erase(0, name.find_first_not_of(L" \t"));
+  name.erase(name.find_last_not_of(L" \t") + 1);
+  if (name.empty()) return true;
+  name = fs::path(name).stem().wstring();  // "folder\\Game.exe" -> "Game"
+  // only while the starter itself has the focus: if the user is somewhere else already, leave it
+  if (GetForegroundWindow() != hwnd_) return true;
+
+  struct Ctx {
+    std::wstring name;
+    HWND found = nullptr;
+  } c{name};
+  EnumWindows(
+      [](HWND hwnd, LPARAM lp) -> BOOL {
+        auto& c = *reinterpret_cast<Ctx*>(lp);
+        if (!IsWindowVisible(hwnd) || GetWindow(hwnd, GW_OWNER)) return TRUE;
+        DWORD pid = 0;
+        GetWindowThreadProcessId(hwnd, &pid);
+        HANDLE p = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+        if (!p) return TRUE;
+        wchar_t path[MAX_PATH * 2]{};
+        DWORD n = static_cast<DWORD>(std::size(path));
+        const bool ok = QueryFullProcessImageNameW(p, 0, path, &n);
+        CloseHandle(p);
+        if (ok && _wcsicmp(fs::path(path).stem().c_str(), c.name.c_str()) == 0) {
+          c.found = hwnd;
+          return FALSE;
+        }
+        return TRUE;
+      },
+      reinterpret_cast<LPARAM>(&c));
+  if (!c.found) return false;
+  if (IsIconic(c.found)) ShowWindow(c.found, SW_RESTORE);
+  const bool ok = SetForegroundWindow(c.found);
+  Log("Focus to {}: {}", WideToUtf8(name), ok ? "ok" : "refused by Windows");
+  return true;
+}
+
+void StarterApp::StartRun() {
+  runner_.Start(cfg_, hwnd_);
+  spoken_.clear();
+  for (auto& s : runner_.Steps()) spoken_.push_back(s.state);
+  announcedDone_ = false;
+  if (cfg_.speech) {
+    speech_.SetLanguage(i18n::English());
+    if (const VrMode* m = cfg_.FindMode(cfg_.mode))
+      speech_.Say(std::string(T("Starte mit ", "Starting with ")) + m->name + ".");
+  }
+}
+
+bool StarterApp::SpeechCheckbox() {
+  const bool changed = ImGui::Checkbox(T("Sprachausgabe", "Speech"), &cfg_.speech);
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("%s", T("Die Windows-Sprachausgabe sagt, was gerade passiert (Runtime, Programme, Fehler).",
+                              "Windows speech says what happens (runtime, programs, errors)."));
+  if (changed) {
+    speech_.SetEnabled(cfg_.speech);
+    speech_.SetLanguage(i18n::English());
+    speech_.Say(cfg_.speech ? T("Sprachausgabe an.", "Speech on.") : "");
+    Save();
+  }
+  return changed;
+}
+
+// Speaks the changes since the last call: a runtime switch (the UAC prompt is often not visible
+// in VR), each program that now runs or failed, and the end of the start. Programs that were
+// already running are not mentioned.
+void StarterApp::Announce() {
+  speech_.SetEnabled(cfg_.speech);
+  const auto& steps = runner_.Steps();
+  if (!cfg_.speech || spoken_.size() != steps.size()) return;
+  speech_.SetLanguage(i18n::English());
+  for (size_t i = 0; i < steps.size(); ++i) {
+    const Step& s = steps[i];
+    if (s.state == spoken_[i]) continue;
+    spoken_[i] = s.state;
+    const bool runtime = s.kind == StepKind::Runtime;
+    switch (s.state) {
+      case StepState::Starting:
+        if (runtime)
+          speech_.Say(T("Runtime wird umgestellt. Bitte die Admin-Abfrage bestätigen.",
+                        "Switching the runtime. Please confirm the admin prompt."));
+        break;
+      case StepState::Ok:
+        speech_.Say(runtime ? std::string(T("Runtime umgestellt.", "Runtime switched."))
+                            : s.name + T(" läuft.", " is running."));
+        break;
+      case StepState::Failed:
+        speech_.Say(runtime ? std::string(T("Runtime nicht umgestellt.", "Runtime not switched."))
+                            : s.name + T(" konnte nicht gestartet werden.", " could not be started."));
+        break;
+      default:
+        break;
+    }
+  }
+  if (!announcedDone_ && runner_.Started() && !runner_.Busy()) {
+    announcedDone_ = true;
+    const int failed = runner_.FailedCount();
+    const bool cancelled = std::any_of(steps.begin(), steps.end(), [](auto& s) { return s.state == StepState::Cancelled; });
+    if (failed)
+      speech_.Say(std::format("{} {} {}.", T("Fertig,", "Done,"), failed, failed == 1 ? T("Fehler", "error") : T("Fehler", "errors")));
+    else if (cancelled)
+      speech_.Say(T("Abgebrochen.", "Cancelled."));
+    else
+      speech_.Say(T("Alles läuft.", "Everything is running."));
   }
 }
 
@@ -642,7 +780,7 @@ void StarterApp::DrawCompact() {
       if (click) {
         cfg_.mode = m.name;
         Save();
-        runner_.Start(cfg_, hwnd_);
+        StartRun();
       }
       ImGui::PopID();
     }
@@ -660,6 +798,7 @@ void StarterApp::DrawCompact() {
   ImGui::Separator();
   if (ImGui::Checkbox(T("Immer im Vordergrund", "Always on top"), &cfg_.alwaysOnTop)) Save();
   if (ImGui::Checkbox(T("Schließen, wenn alles läuft", "Close when everything runs"), &cfg_.closeWhenDone)) Save();
+  SpeechCheckbox();
   if (ImGui::Button(T("Volle Ansicht", "Full view"), ImVec2(-1, 0))) {
     cfg_.compact = false;
     layoutDirty_ = true;

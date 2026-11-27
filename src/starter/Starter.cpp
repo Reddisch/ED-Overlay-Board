@@ -228,6 +228,7 @@ bool StarterConfig::Load(const fs::path& file) {
     closeWhenDone = j.value("closeWhenDone", true);
     compact = j.value("compact", false);
     alwaysOnTop = j.value("alwaysOnTop", false);
+    speech = j.value("speech", false);
     modes.clear();
     for (auto& m : j.value("vrModes", json::array())) {
       VrMode v;
@@ -268,6 +269,7 @@ bool StarterConfig::Save(const fs::path& file) const {
   j["closeWhenDone"] = closeWhenDone;
   j["compact"] = compact;
   j["alwaysOnTop"] = alwaysOnTop;
+  j["speech"] = speech;
   j["vrModes"] = json::array();
   for (auto& v : modes)
     j["vrModes"].push_back({{"name", v.name}, {"runtime", v.runtime}, {"program", v.program}, {"args", v.args},
@@ -499,20 +501,23 @@ void Runner::Launch(Step& s) {
   std::wstring args = Utf8ToWide(s.args);
   std::wstring dir = Utf8ToWide(ExpandPath(s.workDir));
   if (dir.empty() && Exists(file)) dir = fs::path(file).parent_path().wstring();
-  SHELLEXECUTEINFOW sei{sizeof(sei)};
-  sei.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
-  sei.hwnd = owner_;
-  sei.lpFile = file.c_str();
-  sei.lpParameters = args.empty() ? nullptr : args.c_str();
-  sei.lpDirectory = dir.empty() ? nullptr : dir.c_str();
-  sei.nShow = SW_SHOWNORMAL;
-  if (!ShellExecuteExW(&sei)) {
-    s.state = StepState::Failed;
-    s.error = LastErrorText(GetLastError());
-    Log("{}: cannot start {}: {}", s.name, s.path, s.error);
-    return;
-  }
-  Log("{}: started {} {}", s.name, s.path, s.args);
+  // ShellExecuteEx can take seconds (steam:// URLs, shortcuts, a slow disk): do it on a worker
+  // thread so the window shows "starting ..." right away; Tick() picks up the result.
+  auto result = std::make_shared<LaunchResult>();
+  s.launch = result;
+  std::thread([result, file, args, dir] {
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    SHELLEXECUTEINFOW sei{sizeof(sei)};
+    sei.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
+    sei.lpFile = file.c_str();
+    sei.lpParameters = args.empty() ? nullptr : args.c_str();
+    sei.lpDirectory = dir.empty() ? nullptr : dir.c_str();
+    sei.nShow = SW_SHOWNORMAL;
+    result->error = ShellExecuteExW(&sei) ? 0 : GetLastError();
+    result->done = true;
+    CoUninitialize();
+  }).detach();
+  Log("{}: starting {} {}", s.name, s.path, s.args);
 }
 
 void Runner::FinishElevation(Step& s) {
@@ -567,8 +572,20 @@ void Runner::Tick() {
         if (elevateDone_) FinishElevation(s);
         continue;
       }
+      if (s.launch && s.launch->done) {
+        const DWORD err = s.launch->error;
+        s.launch.reset();
+        if (err) {
+          s.state = StepState::Failed;
+          s.error = LastErrorText(err);
+          Log("{}: cannot start {}: {}", s.name, s.path, s.error);
+          continue;
+        }
+        Log("{}: launched", s.name);
+      }
       Detect d = IsRunning(s.processes, s.path, s.windowTitle);
-      if (d != Detect::No) {  // Unknown (e.g. a URL): we cannot see it, count the launch as success
+      // Unknown (e.g. a URL): we cannot see it, count the finished launch as success
+      if (d == Detect::Yes || (d == Detect::Unknown && !s.launch)) {
         s.state = StepState::Ok;
         Log("{}: running", s.name);
       } else if (now - s.startedAt > s.timeout) {
