@@ -80,7 +80,9 @@ tracking; recenter with a keyboard hotkey or a HOTAS/joystick button. Works with
 - **In VR before Elite runs:** the overlay only exists inside Elite, but Virtual Desktop, SteamVR (dashboard ->
   Desktop) and Meta Horizon Link (Desktop) show the Windows desktop in the headset. *Compact view (VR)* turns the
   starter into a small window with one big button per VR mode (click = start with that mode), centered on the main
-  monitor; *Always on top* keeps it in front of other windows until everything runs.
+  monitor; *Always on top* keeps it in front of other windows until you start. When
+  everything runs, the starter hands the focus to Elite. *Speech* lets a Windows voice say what happens (runtime
+  switch and admin prompt, each program that runs or failed, the result).
 
 ## Companion tools
 

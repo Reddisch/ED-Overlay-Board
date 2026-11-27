@@ -1,11 +1,22 @@
 # Changelog
 
-## Unreleased
+## 0.10.0
 
+- Fix: controllers (pointer dot, clicks, grabbing) did not work in games without any OpenXR controller input of
+  their own, such as Elite via EDVR (mouse, keyboard and HOTAS only). The layer only added its actions when someone
+  else attached actions - which another overlay (OpenKneeboard) had done so far. Now, when the game shows no
+  controller input about 5 s after the session starts, the layer suggests its bindings, attaches its own actions
+  and syncs them every frame. Layer log: game input calls and the API layer chain (diagnostics)
 - Starter: *Compact view (VR)* - small window with one big button per VR mode (click starts with that mode) and
   the progress, height follows the content, centered on the main monitor; easy to use in the desktop view of
-  Virtual Desktop, SteamVR or Meta Horizon Link. *Always on top* keeps the starter in front until everything runs
+  Virtual Desktop, SteamVR or Meta Horizon Link. *Always on top* keeps the starter in front until a start is clicked
   (`starter.json`: `compact`, `alwaysOnTop`)
+- Starter: programs are launched on a worker thread, so the window shows "starting ..." right away instead of
+  freezing for seconds (e.g. Elite via Steam in the mode without runtime switch); long error texts wrap
+- Starter: when everything runs, the focus goes to the game window (first process name of the program that
+  waits for VR), so Elite gets keyboard and VR controller input
+- Starter: optional speech output (Windows voices, German or English): the start, a runtime switch with a hint to
+  confirm the admin prompt, each program that runs or failed, and the result (`starter.json`: `speech`)
 
 ## 0.9.0
 

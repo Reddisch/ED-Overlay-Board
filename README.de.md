@@ -80,7 +80,9 @@ Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculu
 - **In VR, bevor Elite läuft:** Das Overlay gibt es nur in Elite, aber Virtual Desktop, SteamVR (Dashboard ->
   Desktop) und Meta Horizon Link (Desktop) zeigen den Windows-Desktop in der Brille. *Kompaktansicht (VR)* macht den
   Starter zu einem kleinen Fenster mit einem großen Knopf pro VR-Modus (Klick = mit diesem Modus starten), mittig
-  auf dem Hauptmonitor; *Immer im Vordergrund* hält es vor anderen Fenstern, bis alles läuft.
+  auf dem Hauptmonitor; *Immer im Vordergrund* hält es vor anderen Fenstern, bis man startet. Wenn
+  alles läuft, gibt der Starter den Fokus an Elite. *Sprachausgabe* lässt eine Windows-Stimme sagen, was passiert
+  (Runtime-Umstellung und Admin-Abfrage, jedes Programm, das läuft oder nicht startet, das Ergebnis).
 
 ## Passende Programme
 

@@ -1,25 +1,20 @@
-## Neu in 0.9.0 – ED Overlay Board Starter
+## Neu in 0.10.0
 
-Neues Programm **ED Overlay Board Starter** (Startmenü, optional Desktop-Verknüpfung): startet Elite, den VR-Modus
-und beliebig viele Helfer-Programme mit einem Klick.
+**Behoben: Controller in Elite (EDVR) funktionieren wieder ohne weiteres Overlay.** Elite nutzt über EDVR keine
+eigene Controller-Eingabe (nur Maus, Tastatur, HOTAS). Der Layer hängte seine Controller-Aktionen bisher nur an die
+eines anderen Programms an – das hatte zufällig OpenKneeboard übernommen. Ohne OpenKneeboard fehlten Zeiger-Punkt,
+Klicks und Greifen. Jetzt meldet der Layer seine Controller selbst an, wenn das Spiel etwa 5 Sekunden nach dem
+VR-Start keine eigenen hat.
 
-<p>
-  <img src="https://raw.githubusercontent.com/Reddisch/ED-Overlay-Board/main/docs/images/starter-start-de.png" alt="Starter: Reiter Start" width="49%">
-  <img src="https://raw.githubusercontent.com/Reddisch/ED-Overlay-Board/main/docs/images/starter-vrmodes-de.png" alt="Starter: Reiter VR-Modi" width="49%">
-</p>
+**Starter:**
+- **Kompaktansicht (VR):** kleines Fenster mit einem großen Knopf pro VR-Modus (Klick = sofort starten), mittig auf
+  dem Hauptmonitor – gut zu bedienen in der Desktop-Ansicht von Virtual Desktop, SteamVR oder Meta Horizon Link.
+- **Immer im Vordergrund** bis zum Start; wenn alles läuft, bekommt Elite den Fokus.
+- **Sprachausgabe** (optional): eine Windows-Stimme sagt, was passiert – Runtime-Umstellung mit Hinweis auf die
+  Admin-Abfrage, jedes Programm, das läuft oder nicht startet, und das Ergebnis.
+- Kein Einfrieren mehr direkt nach dem Klick (Elite über Steam blockierte das Fenster einige Sekunden).
 
-- **VR-Modus wählen:** Desktop, Virtual Desktop (VDXR), SteamVR, Meta Horizon Link oder eine andere OpenXR-Runtime.
-  Der Starter stellt bei Bedarf die aktive OpenXR-Runtime um (Windows fragt einmal nach Admin-Rechten, nur wenn
-  eine andere Runtime aktiv ist) und startet das passende VR-Programm.
-- **Programme:** Elite, ED Overlay Board, VoiceAttack, … mit Verzögerung, Zeitlimit und *Erst starten, wenn der
-  VR-Modus bereit ist*. Was schon läuft, wird nicht doppelt gestartet.
-- Erkennt beim ersten Start Steam, Elite, die installierten Runtimes und gängige Helfer-Programme.
-- **Desktop-Verknüpfung pro VR-Modus** (z. B. `Elite - SteamVR`), die sofort alles startet.
-
-> **Der Starter ist optional.** ED Overlay Board funktioniert wie bisher auch ohne ihn – Elite, VR-Software und App
-> einfach wie gewohnt starten. Der Starter spart nur Klicks, vor allem wenn man zwischen mehreren VR-Runtimes wechselt.
-
-Die Overlay-App und der Layer sind unverändert (keine neue Schnittstelle); Elite muss nicht neu gestartet werden.
+Der Layer ist neu: **Elite nach dem Update einmal neu starten.**
 
 **Installation:** `EDOverlayBoard-Setup-<Version>.exe` herunterladen und ausführen. Meldet Windows
 „Der Computer wurde durch Windows geschützt“: **Weitere Informationen** → **Trotzdem ausführen**.
@@ -28,28 +23,22 @@ Quellcode gebaut.
 
 ---
 
-## New in 0.9.0 – ED Overlay Board Starter
+## New in 0.10.0
 
-New program **ED Overlay Board Starter** (Start menu, optional desktop shortcut): starts Elite, the VR mode and any
-number of helper programs in one click.
+**Fixed: controllers in Elite (EDVR) work again without another overlay.** Through EDVR, Elite has no controller
+input of its own (mouse, keyboard, HOTAS only). The layer used to add its controller actions only to someone
+else's – which OpenKneeboard happened to do. Without OpenKneeboard the pointer dot, clicks and grabbing were gone.
+Now the layer attaches its own controller actions when the game has none about 5 seconds after the VR start.
 
-<p>
-  <img src="https://raw.githubusercontent.com/Reddisch/ED-Overlay-Board/main/docs/images/starter-start-en.png" alt="Starter: Start tab" width="49%">
-  <img src="https://raw.githubusercontent.com/Reddisch/ED-Overlay-Board/main/docs/images/starter-vrmodes-en.png" alt="Starter: VR modes tab" width="49%">
-</p>
+**Starter:**
+- **Compact view (VR):** small window with one big button per VR mode (click = start right away), centered on the
+  main monitor – easy to use in the desktop view of Virtual Desktop, SteamVR or Meta Horizon Link.
+- **Always on top** until you start; when everything runs, Elite gets the focus.
+- **Speech output** (optional): a Windows voice says what happens – runtime switch with a hint to confirm the admin
+  prompt, each program that runs or failed, and the result.
+- No more freeze right after the click (Elite via Steam blocked the window for a few seconds).
 
-- **Choose a VR mode:** Desktop, Virtual Desktop (VDXR), SteamVR, Meta Horizon Link or any other OpenXR runtime.
-  The starter switches the active OpenXR runtime when needed (Windows asks once for admin rights, only when
-  another runtime is active) and starts the matching VR program.
-- **Programs:** Elite, ED Overlay Board, VoiceAttack, … with delay, timeout and *Start only once the VR mode is
-  ready*. Programs that are already running are not started twice.
-- Detects Steam, Elite, the installed runtimes and common helper programs on the first start.
-- **Desktop shortcut per VR mode** (e.g. `Elite - SteamVR`) that starts everything right away.
-
-> **The starter is optional.** ED Overlay Board works without it just as before – start Elite, your VR software and
-> the app the way you always did. The starter only saves clicks, especially when you switch between several VR runtimes.
-
-The overlay app and the layer are unchanged (no new interface); no need to restart Elite.
+The layer is new: **restart Elite once after the update.**
 
 **Installation:** download and run `EDOverlayBoard-Setup-<version>.exe`. If Windows says
 "Windows protected your PC": **More info** → **Run anyway**. The installer has no paid code signing
