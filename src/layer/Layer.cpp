@@ -154,18 +154,50 @@ XRAPI_ATTR XrResult XRAPI_CALL Hook_xrPollEvent(XrInstance instance, XrEventData
   return r;
 }
 
+// ---- diagnostics: what the game does with controller input (one line per kind, a few at most)
+std::string PathName(XrPath p) {
+  char buf[XR_MAX_PATH_LENGTH]{};
+  uint32_t n = 0;
+  if (g->next.xrPathToString && XR_SUCCEEDED(g->next.xrPathToString(g->instance, p, sizeof(buf), &n, buf))) return buf;
+  return std::to_string(p);
+}
+
+XRAPI_ATTR XrResult XRAPI_CALL Hook_xrCreateActionSet(XrInstance instance, const XrActionSetCreateInfo* info,
+                                                      XrActionSet* set) {
+  g->actions.NoteGameUsesActions();
+  XrResult r = g->next.xrCreateActionSet(instance, info, set);
+  static int logged = 0;
+  if (info && logged++ < 8) Log("Input (game): action set \"{}\" created ({})", info->actionSetName, static_cast<int>(r));
+  return r;
+}
+
 XRAPI_ATTR XrResult XRAPI_CALL Hook_xrSuggestInteractionProfileBindings(
     XrInstance instance, const XrInteractionProfileSuggestedBinding* info) {
   if (instance != g->instance) return g->next.xrSuggestInteractionProfileBindings(instance, info);
-  return g->actions.SuggestBindings(instance, info);
+  g->actions.NoteGameUsesActions();
+  XrResult r = g->actions.SuggestBindings(instance, info);
+  static int logged = 0;
+  if (info && logged++ < 12)
+    Log("Input (game): bindings for {} ({} binding(s)) -> {}", PathName(info->interactionProfile),
+        info->countSuggestedBindings, static_cast<int>(r));
+  return r;
 }
 
 XRAPI_ATTR XrResult XRAPI_CALL Hook_xrAttachSessionActionSets(XrSession session,
                                                               const XrSessionActionSetsAttachInfo* info) {
+  Log("Input (game): attaching {} action set(s)", info ? info->countActionSets : 0);
+  g->actions.NoteGameUsesActions();
   return g->actions.AttachSessionActionSets(session, info);
 }
 
 XRAPI_ATTR XrResult XRAPI_CALL Hook_xrSyncActions(XrSession session, const XrActionsSyncInfo* info) {
+  g->actions.NoteGameUsesActions();
+  static bool logged = false;
+  if (!logged) {
+    logged = true;
+    Log("Input (game): first xrSyncActions ({} active set(s), our set attached: {})",
+        info ? info->countActiveActionSets : 0, g->actions.Attached(session));
+  }
   return g->actions.SyncActions(session, info);
 }
 
@@ -190,6 +222,7 @@ XRAPI_ATTR XrResult XRAPI_CALL Hook_xrGetInstanceProcAddr(XrInstance instance, c
     EDOB_HOOK(xrEnumerateSwapchainImages)
     EDOB_HOOK(xrAcquireSwapchainImage)
     EDOB_HOOK(xrReleaseSwapchainImage)
+    EDOB_HOOK(xrCreateActionSet)
     EDOB_HOOK(xrSuggestInteractionProfileBindings)
     EDOB_HOOK(xrAttachSessionActionSets)
     EDOB_HOOK(xrSyncActions)
@@ -207,6 +240,14 @@ XRAPI_ATTR XrResult XRAPI_CALL Layer_xrCreateApiLayerInstance(const XrInstanceCr
 
   PFN_xrGetInstanceProcAddr nextGipa = layerInfo->nextInfo->nextGetInstanceProcAddr;
   Log("ED Overlay Board layer {} loaded into \"{}\"", EDOB_VERSION, info->applicationInfo.applicationName);
+  {
+    std::string chain;
+    for (const XrApiLayerNextInfo* n = layerInfo->nextInfo; n; n = n->next) chain += std::string(chain.empty() ? "" : " -> ") + n->layerName;
+    Log("API layers from here down to the runtime: {}", chain.empty() ? "-" : chain);
+    std::string ext;
+    for (uint32_t i = 0; i < info->enabledExtensionCount; ++i) ext += std::string(i ? ", " : "") + info->enabledExtensionNames[i];
+    Log("Game extensions: {}", ext.empty() ? "-" : ext);
+  }
 
   // Enable optional extensions the runtime supports and the game did not ask for.
   std::vector<XrExtensionProperties> available;

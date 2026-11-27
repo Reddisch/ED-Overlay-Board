@@ -1207,6 +1207,7 @@ XrResult OverlaySession::EndFrame(const XrFrameEndInfo* info) {
     UpdateGaze();
     PublishGaze();
     if (centered_) SummonWindows();
+    actions_.FrameTick(session_);  // attaches + syncs our actions when the game has none
     input_.Update(localSpace_, info->displayTime, head_, headValid_);
 
     if (!connected_ || !centered_) {  // never show windows before the first real recenter

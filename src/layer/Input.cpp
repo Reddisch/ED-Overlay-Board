@@ -36,6 +36,7 @@ float Lerp(float a, float b, float t) { return a + (b - a) * t; }
 
 bool InputActions::Create(const NextDispatch& next, XrInstance instance) {
   next_ = &next;
+  instance_ = instance;
   next.xrStringToPath(instance, "/user/hand/left", &hands_[0]);
   next.xrStringToPath(instance, "/user/hand/right", &hands_[1]);
 
@@ -115,6 +116,12 @@ XrResult InputActions::SuggestBindings(XrInstance instance, const XrInteractionP
 
 XrResult InputActions::AttachSessionActionSets(XrSession session, const XrSessionActionSetsAttachInfo* info) {
   if (!created_ || !info) return next_->xrAttachSessionActionSets(session, info);
+  if (Attached(session)) {  // we attached on our own already: the game is too late, cannot merge
+    XrResult r = next_->xrAttachSessionActionSets(session, info);
+    Log("Input: the game attached actions after our own ({}) - its controller input may not work",
+        static_cast<int>(r));
+    return r;
+  }
   std::vector<XrActionSet> sets(info->actionSets, info->actionSets + info->countActionSets);
   sets.push_back(set_);
   XrSessionActionSetsAttachInfo copy = *info;
@@ -131,7 +138,49 @@ XrResult InputActions::AttachSessionActionSets(XrSession session, const XrSessio
   return r;
 }
 
+void InputActions::FrameTick(XrSession session) {
+  if (!created_) return;
+  if (Attached(session)) {
+    if (selfSync_) {
+      XrActiveActionSet active{set_, XR_NULL_PATH};
+      XrActionsSyncInfo si{XR_TYPE_ACTIONS_SYNC_INFO};
+      si.countActiveActionSets = 1;
+      si.activeActionSets = &active;
+      next_->xrSyncActions(session, &si);  // XR_SESSION_NOT_FOCUSED while unfocused: fine
+    }
+    return;
+  }
+  if (gameUsesActions_ || selfGaveUp_ || attached_) return;
+  if (++framesWithoutGame_ < kSelfAttachFrames) return;
+
+  // Suggestions are per instance and only possible before the first attach; on a later
+  // session of the same instance they fail harmlessly and the earlier ones still apply.
+  int suggested = 0;
+  for (const auto& p : profiles_) {
+    XrInteractionProfileSuggestedBinding sb{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+    sb.interactionProfile = p.path;
+    sb.countSuggestedBindings = static_cast<uint32_t>(p.bindings.size());
+    sb.suggestedBindings = p.bindings.data();
+    if (XR_SUCCEEDED(next_->xrSuggestInteractionProfileBindings(instance_, &sb))) ++suggested;
+  }
+  XrSessionActionSetsAttachInfo ai{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
+  ai.countActionSets = 1;
+  ai.actionSets = &set_;
+  XrResult r = next_->xrAttachSessionActionSets(session, &ai);
+  if (XR_FAILED(r)) {
+    selfGaveUp_ = true;
+    Log("Input: the game uses no controller input, attaching our own actions failed ({}) - controllers disabled",
+        static_cast<int>(r));
+    return;
+  }
+  attached_ = true;
+  attachedSession_ = session;
+  selfSync_ = true;
+  Log("Input: the game uses no controller input - attached our own actions ({} controller profile(s))", suggested);
+}
+
 XrResult InputActions::SyncActions(XrSession session, const XrActionsSyncInfo* info) {
+  selfSync_ = false;  // the game syncs now; our set rides along below
   if (!Attached(session) || !info) return next_->xrSyncActions(session, info);
   std::vector<XrActiveActionSet> sets(info->activeActionSets, info->activeActionSets + info->countActiveActionSets);
   sets.push_back({set_, XR_NULL_PATH});
@@ -147,7 +196,9 @@ void InputActions::OnSessionDestroyed(XrSession session) {
   if (attachedSession_ == session) {
     attached_ = false;
     attachedSession_ = XR_NULL_HANDLE;
+    selfSync_ = false;
   }
+  framesWithoutGame_ = 0;
 }
 
 // ---------------------------------------------------------------------------

@@ -25,6 +25,13 @@ class InputActions {
   XrResult AttachSessionActionSets(XrSession session, const XrSessionActionSetsAttachInfo* info);
   XrResult SyncActions(XrSession session, const XrActionsSyncInfo* info);
   void OnSessionDestroyed(XrSession session);
+  // The game created / suggested / attached / synced actions itself (seen in our hooks).
+  void NoteGameUsesActions() { gameUsesActions_ = true; }
+  // Once per frame, before the input is read. Games without any OpenXR input (Elite via EDVR:
+  // mouse, keyboard and HOTAS only) never attach action sets, so ours would never be attached.
+  // After kSelfAttachFrames without a sign of game input we suggest our bindings and attach our
+  // set alone (as OpenKneeboard does), then sync it ourselves every frame.
+  void FrameTick(XrSession session);
 
   bool Attached(XrSession session) const { return attached_ && attachedSession_ == session; }
   XrAction Aim() const { return aim_; }
@@ -42,6 +49,7 @@ class InputActions {
   const Profile* Find(XrPath p) const;
 
   const NextDispatch* next_ = nullptr;
+  XrInstance instance_ = XR_NULL_HANDLE;
   bool created_ = false;
   XrActionSet set_ = XR_NULL_HANDLE;
   XrAction aim_ = XR_NULL_HANDLE, grab_ = XR_NULL_HANDLE, select_ = XR_NULL_HANDLE, stick_ = XR_NULL_HANDLE,
@@ -50,6 +58,11 @@ class InputActions {
   std::vector<Profile> profiles_;
   bool attached_ = false;
   XrSession attachedSession_ = XR_NULL_HANDLE;
+  bool gameUsesActions_ = false;
+  bool selfSync_ = false;      // we attached our set alone and sync it every frame
+  bool selfGaveUp_ = false;    // attaching on our own failed: do not try again
+  int framesWithoutGame_ = 0;
+  static constexpr int kSelfAttachFrames = 500;  // ~5 s at 90 Hz, like OpenKneeboard
 };
 
 // "One Euro" low-pass filter: strong smoothing while (almost) still, little lag while moving fast.

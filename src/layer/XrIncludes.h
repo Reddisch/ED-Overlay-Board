@@ -33,7 +33,7 @@ inline XrPosef ToXr(const Pose& p) {
   X(xrDestroySession) X(xrEndFrame) X(xrPollEvent) X(xrCreateReferenceSpace) X(xrCreateActionSpace) X(xrDestroySpace)     \
   X(xrLocateSpace) X(xrEnumerateSwapchainFormats) X(xrCreateSwapchain) X(xrDestroySwapchain)               \
   X(xrEnumerateSwapchainImages) X(xrAcquireSwapchainImage) X(xrWaitSwapchainImage)                         \
-  X(xrReleaseSwapchainImage) X(xrStringToPath) X(xrCreateActionSet) X(xrCreateAction)                      \
+  X(xrReleaseSwapchainImage) X(xrStringToPath) X(xrPathToString) X(xrCreateActionSet) X(xrCreateAction)                      \
   X(xrSuggestInteractionProfileBindings) X(xrAttachSessionActionSets) X(xrSyncActions)                     \
   X(xrGetActionStateFloat) X(xrGetActionStateVector2f) X(xrGetActionStatePose) X(xrApplyHapticFeedback)
 
