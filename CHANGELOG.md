@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Starter: *Compact view (VR)* - small window with one big button per VR mode (click starts with that mode) and
+  the progress, height follows the content, centered on the main monitor; easy to use in the desktop view of
+  Virtual Desktop, SteamVR or Meta Horizon Link. *Always on top* keeps the starter in front until everything runs
+  (`starter.json`: `compact`, `alwaysOnTop`)
+
 ## 0.9.0
 
 - New program **ED Overlay Board Starter** (`EDOverlayBoardStarter.exe`, own Start menu entry and optional

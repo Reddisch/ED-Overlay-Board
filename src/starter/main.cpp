@@ -104,6 +104,10 @@ class StarterApp {
   void Frame();
   void Draw();
   void DrawStart();
+  void DrawCompact();
+  void DoneText();
+  void ApplyLayout(bool center);
+  void UpdateTopmost();
   void DrawPrograms();
   void DrawModes();
   void Save() { dirty_ = true; }
@@ -129,6 +133,9 @@ class StarterApp {
   std::string shortcutMsg_;
   bool closing_ = false;
   int forceTab_ = -1;  // EDOB_STARTER_TAB=0/1/2: open on that tab (screenshots for the docs/tests)
+  bool layoutDirty_ = false;  // compact view switched: resize + center the window
+  bool topmost_ = false;
+  float compactH_ = 0;        // content height of the compact view (window follows it)
 };
 
 bool StarterApp::Init(bool autoStart, const std::string& modeOverride) {
@@ -210,6 +217,8 @@ bool StarterApp::Init(bool autoStart, const std::string& modeOverride) {
   ImGui_ImplWin32_Init(hwnd_);
   ImGui_ImplDX11_Init(dev_.Get(), ctx_.Get());
 
+  ApplyLayout(true);
+  UpdateTopmost();
   ShowWindow(hwnd_, SW_SHOWNORMAL);
   UpdateWindow(hwnd_);
   return true;
@@ -255,7 +264,8 @@ LRESULT CALLBACK StarterApp::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
       }
       return 0;
     case WM_GETMINMAXINFO: {
-      reinterpret_cast<MINMAXINFO*>(lp)->ptMinTrackSize = {560, 420};
+      reinterpret_cast<MINMAXINFO*>(lp)->ptMinTrackSize =
+          self && self->cfg_.compact ? POINT{320, 160} : POINT{560, 420};
       return 0;
     }
     case WM_DPICHANGED: {
@@ -290,6 +300,7 @@ int StarterApp::Run() {
       DispatchMessageW(&msg);
     }
     runner_.Tick();
+    UpdateTopmost();
     // a minimised or background window without a running start does not need 60 frames per second
     if (IsIconic(hwnd_) || (GetForegroundWindow() != hwnd_ && !runner_.Busy()))
       MsgWaitForMultipleObjects(0, nullptr, FALSE, 200, QS_ALLINPUT);
@@ -305,6 +316,10 @@ void StarterApp::Frame() {
   if (titleLanguage_ != static_cast<int>(i18n::English())) {
     titleLanguage_ = static_cast<int>(i18n::English());
     SetWindowTextW(hwnd_, T(L"ED Overlay Board – Starter", L"ED Overlay Board – Starter"));
+  }
+  if (layoutDirty_) {
+    layoutDirty_ = false;
+    ApplyLayout(true);
   }
   if (resizeW_ && resizeH_) {
     rtv_.Reset();
@@ -323,6 +338,50 @@ void StarterApp::Frame() {
   ctx_->ClearRenderTargetView(rtv, clear);
   ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
   swap_->Present(1, 0);
+
+  // the compact window is exactly as tall as its content (grows while the steps are shown),
+  // and stays centered on its middle
+  if (cfg_.compact && compactH_ > 0 && !IsZoomed(hwnd_) && !layoutDirty_) {
+    RECT cr{};
+    GetClientRect(hwnd_, &cr);
+    const int want = static_cast<int>(std::ceil(compactH_));
+    if (std::abs((cr.bottom - cr.top) - want) > 1) {
+      RECT wr{};
+      GetWindowRect(hwnd_, &wr);
+      RECT adj{0, 0, 1, want};
+      AdjustWindowRectExForDpi(&adj, WS_OVERLAPPEDWINDOW, FALSE, 0, GetDpiForWindow(hwnd_));
+      const int h = adj.bottom - adj.top, cy = (wr.top + wr.bottom) / 2;
+      SetWindowPos(hwnd_, nullptr, wr.left, cy - h / 2, wr.right - wr.left, h, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+  }
+}
+
+// Window size for the current view, optionally centered on the primary monitor (that is the one
+// the VR desktop views of Virtual Desktop, SteamVR and Meta Link show first).
+void StarterApp::ApplyLayout(bool center) {
+  if (IsZoomed(hwnd_)) ShowWindow(hwnd_, SW_RESTORE);
+  RECT wr{};
+  GetWindowRect(hwnd_, &wr);
+  const int w = static_cast<int>((cfg_.compact ? 460 : 760) * scale_);
+  const int h = static_cast<int>((cfg_.compact ? 420 : 640) * scale_);  // compact: fitted after the next frame
+  int x = wr.left, y = wr.top;
+  if (center) {
+    MONITORINFO mi{sizeof(mi)};
+    if (GetMonitorInfoW(MonitorFromPoint({0, 0}, MONITOR_DEFAULTTOPRIMARY), &mi)) {
+      x = (mi.rcWork.left + mi.rcWork.right - w) / 2;
+      y = (mi.rcWork.top + mi.rcWork.bottom - h) / 2;
+    }
+  }
+  compactH_ = 0;
+  SetWindowPos(hwnd_, nullptr, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+// "Always on top" only until everything runs, so the starter never covers Elite afterwards.
+void StarterApp::UpdateTopmost() {
+  const bool want = cfg_.alwaysOnTop && !(runner_.Started() && !runner_.Busy());
+  if (want == topmost_) return;
+  topmost_ = want;
+  SetWindowPos(hwnd_, want ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 void StarterApp::Draw() {
@@ -338,6 +397,11 @@ void StarterApp::Draw() {
   ImGui::TextUnformatted("ELITE DANGEROUS  //  START");
   ImGui::SetWindowFontScale(1.0f);
   ImGui::PopStyleColor();
+  if (cfg_.compact) {
+    DrawCompact();
+    ImGui::End();
+    return;
+  }
   if (ImGui::BeginTabBar("tabs")) {
     auto flags = [&](int i) { return forceTab_ == i ? ImGuiTabItemFlags_SetSelected : 0; };
     if (ImGui::BeginTabItem(T("Start###start", "Start###start"), nullptr, flags(0))) {
@@ -425,7 +489,7 @@ void StarterApp::DrawStart() {
       if (s.kind == kind && (kind != StepKind::Program || s.program == program)) return &s;
     return nullptr;
   };
-  const float footer = ImGui::GetFrameHeightWithSpacing() * 2.6f;
+  const float footer = ImGui::GetFrameHeightWithSpacing() * 3.7f;
   if (ImGui::BeginTable("run", 3,
                         ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY,
                         ImVec2(0, -footer))) {
@@ -484,26 +548,25 @@ void StarterApp::DrawStart() {
     ImGui::PopStyleColor();
     if (runner_.Started()) {
       ImGui::SameLine();
-      ImGui::AlignTextToFramePadding();
-      const int failed = runner_.FailedCount();
-      if (failed) {
-        ImGui::TextColored(kRed, "%s: %d %s", T("Fertig", "Done"), failed, T("Fehler", "failed"));
-      } else if (cfg_.closeWhenDone) {
-        const double left = kAutoCloseSeconds - runner_.SinceDone();
-        ImGui::TextColored(kGreen, "%s %.0f s", T("Alles läuft. o7  Schließt in", "All running. o7  Closing in"),
-                           std::ceil(std::max(0.0, left)));
-        if (left <= 0 && !closing_) {
-          closing_ = true;
-          PostMessageW(hwnd_, WM_CLOSE, 0, 0);
-        }
-      } else {
-        ImGui::TextColored(kGreen, "%s", T("Alles läuft. o7", "All running. o7"));
-      }
+      DoneText();
     }
   }
   if (ImGui::Checkbox(T("Fenster schließen, wenn alles läuft", "Close the window when everything runs"),
                       &cfg_.closeWhenDone))
     Save();
+  ImGui::SameLine();
+  if (ImGui::Checkbox(T("Immer im Vordergrund", "Always on top"), &cfg_.alwaysOnTop)) Save();
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("%s", T("Bleibt vor allen anderen Fenstern, bis alles läuft - gut für die Desktop-Ansicht in VR.",
+                              "Stays in front of all other windows until everything runs - handy in a VR desktop view."));
+  if (ImGui::Button(T("Kompaktansicht (VR)", "Compact view (VR)"))) {
+    cfg_.compact = true;
+    layoutDirty_ = true;
+    Save();
+  }
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("%s", T("Kleines Fenster mit einem großen Knopf pro VR-Modus, mittig auf dem Hauptmonitor.",
+                              "Small window with one big button per VR mode, centered on the main monitor."));
   ImGui::SameLine();
   int lang = i18n::English() ? 1 : 0;
   ImGui::SetNextItemWidth(220 * scale_);
@@ -513,6 +576,96 @@ void StarterApp::DrawStart() {
     i18n::Apply(cfg_.language);
     Save();
   }
+}
+
+// Result line after a start; closes the window after kAutoCloseSeconds when wanted.
+void StarterApp::DoneText() {
+  ImGui::AlignTextToFramePadding();
+  const int failed = runner_.FailedCount();
+  if (failed) {
+    ImGui::TextColored(kRed, "%s: %d %s", T("Fertig", "Done"), failed, T("Fehler", "failed"));
+  } else if (cfg_.closeWhenDone) {
+    const double left = kAutoCloseSeconds - runner_.SinceDone();
+    ImGui::TextColored(kGreen, "%s %.0f s", T("Alles läuft. o7  Schließt in", "All running. o7  Closing in"),
+                       std::ceil(std::max(0.0, left)));
+    if (left <= 0 && !closing_) {
+      closing_ = true;
+      PostMessageW(hwnd_, WM_CLOSE, 0, 0);
+    }
+  } else {
+    ImGui::TextColored(kGreen, "%s", T("Alles läuft. o7", "All running. o7"));
+  }
+}
+
+// Compact view for the desktop view in VR: one big button per VR mode (click = start with it),
+// the progress while starting, nothing to edit. The window height follows the content.
+void StarterApp::DrawCompact() {
+  const bool busy = runner_.Busy();
+  const ImGuiStyle& st = ImGui::GetStyle();
+  ImGui::TextColored(kMuted, "%s: %s", T("Aktive OpenXR-Runtime", "Active OpenXR runtime"),
+                     RuntimeName(ActiveOpenXrRuntime()).c_str());
+  ImGui::Spacing();
+
+  if (runner_.Started()) {
+    const float col = ImGui::GetContentRegionAvail().x * 0.55f;
+    for (auto& s : runner_.Steps()) {
+      ImGui::PushID(&s);
+      ImGui::AlignTextToFramePadding();
+      if (s.kind == StepKind::Program)
+        ImGui::TextUnformatted(s.name.c_str());
+      else
+        ImGui::TextColored(kOrange, "%s", s.name.c_str());
+      ImGui::SameLine(col);
+      StatusText(s);
+      ImGui::PopID();
+    }
+    ImGui::Spacing();
+  }
+
+  const float bigH = ImGui::GetFrameHeight() * 2.2f;
+  if (busy) {
+    if (ImGui::Button(T("Abbrechen", "Cancel"), ImVec2(-1, bigH))) runner_.Cancel();
+    ImGui::TextColored(kMuted, "%s %.0f s", T("seit Start", "since start"), runner_.Elapsed());
+  } else {
+    if (runner_.Started()) {
+      DoneText();
+      ImGui::Spacing();
+    }
+    for (auto& m : cfg_.modes) {
+      ImGui::PushID(&m);
+      const bool sel = m.name == cfg_.mode;
+      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.55f, 0.1f, sel ? 0.65f : 0.30f));
+      ImGui::SetWindowFontScale(1.3f);
+      const bool click = ImGui::Button(m.name.empty() ? "?" : m.name.c_str(), ImVec2(-1, bigH));
+      ImGui::SetWindowFontScale(1.0f);
+      ImGui::PopStyleColor();
+      if (click) {
+        cfg_.mode = m.name;
+        Save();
+        runner_.Start(cfg_, hwnd_);
+      }
+      ImGui::PopID();
+    }
+    // which programs come along
+    std::string with;
+    for (auto& e : cfg_.programs)
+      if (e.enabled && !e.path.empty()) with += (with.empty() ? "" : ", ") + e.name;
+    ImGui::PushStyleColor(ImGuiCol_Text, kMuted);
+    ImGui::PushTextWrapPos(0);
+    ImGui::Text("%s %s", T("Startet mit:", "Starts with:"), with.empty() ? T("nur dem VR-Modus", "the VR mode only") : with.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::PopStyleColor();
+  }
+
+  ImGui::Separator();
+  if (ImGui::Checkbox(T("Immer im Vordergrund", "Always on top"), &cfg_.alwaysOnTop)) Save();
+  if (ImGui::Checkbox(T("Schließen, wenn alles läuft", "Close when everything runs"), &cfg_.closeWhenDone)) Save();
+  if (ImGui::Button(T("Volle Ansicht", "Full view"), ImVec2(-1, 0))) {
+    cfg_.compact = false;
+    layoutDirty_ = true;
+    Save();
+  }
+  compactH_ = ImGui::GetCursorPosY() - st.ItemSpacing.y + st.WindowPadding.y;
 }
 
 bool StarterApp::PathField(const char* label, std::string& value, Pick kind) {

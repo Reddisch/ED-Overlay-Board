@@ -38,6 +38,8 @@ struct StarterConfig {
   std::string language;   // "de", "en" or "" = Windows language
   std::string mode;       // name of the selected VR mode
   bool closeWhenDone = true;
+  bool compact = false;      // big mode buttons only, small window (easy to hit in a VR desktop view)
+  bool alwaysOnTop = false;  // stays in front of other windows until everything runs
   std::vector<VrMode> modes;
   std::vector<ProgramEntry> programs;
 

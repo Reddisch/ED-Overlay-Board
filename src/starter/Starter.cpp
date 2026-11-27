@@ -226,6 +226,8 @@ bool StarterConfig::Load(const fs::path& file) {
     language = j.value("language", "");
     mode = j.value("mode", "");
     closeWhenDone = j.value("closeWhenDone", true);
+    compact = j.value("compact", false);
+    alwaysOnTop = j.value("alwaysOnTop", false);
     modes.clear();
     for (auto& m : j.value("vrModes", json::array())) {
       VrMode v;
@@ -264,6 +266,8 @@ bool StarterConfig::Save(const fs::path& file) const {
   if (!language.empty()) j["language"] = language;
   j["mode"] = mode;
   j["closeWhenDone"] = closeWhenDone;
+  j["compact"] = compact;
+  j["alwaysOnTop"] = alwaysOnTop;
   j["vrModes"] = json::array();
   for (auto& v : modes)
     j["vrModes"].push_back({{"name", v.name}, {"runtime", v.runtime}, {"program", v.program}, {"args", v.args},

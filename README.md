@@ -77,6 +77,10 @@ tracking; recenter with a keyboard hotkey or a HOTAS/joystick button. Works with
 - *Desktop shortcut for this mode* (tab *VR modes*) creates a shortcut like `Elite - SteamVR` that starts
   everything right away. Command line: `EDOverlayBoardStarter.exe --start --mode "SteamVR"`.
 - Whether the headset is really connected (Link, VD) cannot be seen; connect it before Elite starts.
+- **In VR before Elite runs:** the overlay only exists inside Elite, but Virtual Desktop, SteamVR (dashboard ->
+  Desktop) and Meta Horizon Link (Desktop) show the Windows desktop in the headset. *Compact view (VR)* turns the
+  starter into a small window with one big button per VR mode (click = start with that mode), centered on the main
+  monitor; *Always on top* keeps it in front of other windows until everything runs.
 
 ## Companion tools
 

@@ -77,6 +77,10 @@ Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculu
 - *Desktop-Verknüpfung für diesen Modus* (Reiter *VR-Modi*) legt eine Verknüpfung wie `Elite - SteamVR` an, die
   sofort alles startet. Befehlszeile: `EDOverlayBoardStarter.exe --start --mode "SteamVR"`.
 - Ob die Brille wirklich verbunden ist (Link, VD), kann der Starter nicht sehen; vor dem Elite-Start verbinden.
+- **In VR, bevor Elite läuft:** Das Overlay gibt es nur in Elite, aber Virtual Desktop, SteamVR (Dashboard ->
+  Desktop) und Meta Horizon Link (Desktop) zeigen den Windows-Desktop in der Brille. *Kompaktansicht (VR)* macht den
+  Starter zu einem kleinen Fenster mit einem großen Knopf pro VR-Modus (Klick = mit diesem Modus starten), mittig
+  auf dem Hauptmonitor; *Immer im Vordergrund* hält es vor anderen Fenstern, bis alles läuft.
 
 ## Passende Programme
 
