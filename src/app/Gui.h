@@ -55,6 +55,7 @@ class SettingsWindow {
   int selected_ = 0;
   int titleLanguage_ = -1;  // language of the window caption (-1 = not set yet)
   int learningBinding_ = -1;
+  int forceTab_ = -1;  // EDOB_GUI_TAB=0..3: open on that tab (screenshots for the docs)
   bool learningJoystick_ = false;
   std::string nameBeforeEdit_;
   std::vector<WindowCaptureSource::WindowInfo> windowList_;

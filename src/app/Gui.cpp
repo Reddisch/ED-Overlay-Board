@@ -115,6 +115,7 @@ constexpr ImGuiWindowFlags kFullscreen = ImGuiWindowFlags_NoTitleBar | ImGuiWind
 // Settings window
 
 SettingsWindow::SettingsWindow(App& app) : app_(app) {
+  if (wchar_t tab[8]{}; GetEnvironmentVariableW(L"EDOB_GUI_TAB", tab, 8)) forceTab_ = _wtoi(tab);
   WNDCLASSEXW wc{sizeof(wc)};
   wc.style = CS_CLASSDC;
   wc.lpfnWndProc = WndProc;
@@ -272,23 +273,25 @@ void SettingsWindow::Draw() {
   const float footer = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y * 2;
   ImGui::BeginChild("##tabs", {0, -footer});
   if (ImGui::BeginTabBar("##tabbar")) {
-    if (ImGui::BeginTabItem(T("Fenster###windows", "Windows###windows"))) {
+    auto flags = [&](int i) { return forceTab_ == i ? ImGuiTabItemFlags_SetSelected : 0; };
+    if (ImGui::BeginTabItem(T("Fenster###windows", "Windows###windows"), nullptr, flags(0))) {
       DrawWindowsTab();
       ImGui::EndTabItem();
     }
-    if (ImGui::BeginTabItem(T("Tasten###bindings", "Bindings###bindings"))) {
+    if (ImGui::BeginTabItem(T("Tasten###bindings", "Bindings###bindings"), nullptr, flags(1))) {
       DrawBindingsTab();
       ImGui::EndTabItem();
     }
-    if (ImGui::BeginTabItem(T("Allgemein###general", "General###general"))) {
+    if (ImGui::BeginTabItem(T("Allgemein###general", "General###general"), nullptr, flags(2))) {
       DrawGeneralTab();
       ImGui::EndTabItem();
     }
-    if (ImGui::BeginTabItem("Status###status")) {
+    if (ImGui::BeginTabItem("Status###status", nullptr, flags(3))) {
       DrawStatusTab();
       ImGui::EndTabItem();
     }
     ImGui::EndTabBar();
+    forceTab_ = -1;
   }
   ImGui::EndChild();
 

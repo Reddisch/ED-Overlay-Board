@@ -13,6 +13,8 @@ Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculu
 > **Hinweis:** Dieses Programm wurde mit Hilfe von KI (Claude von Anthropic) erstellt –
 > Code, Texte und Installer. Getestet wurde es vom Autor mit Quest 3, Virtual Desktop (VDXR) und Elite Dangerous.
 
+![Einstellungsfenster, Reiter Fenster](docs/images/settings-windows-de.png)
+
 ## Funktionen
 
 - **Mehrere Fenster gleichzeitig**, jedes einzeln konfigurierbar
@@ -50,7 +52,17 @@ Funktioniert mit jeder OpenXR-Runtime (Virtual Desktop VDXR, SteamVR, Meta/Oculu
 
 ## Starter (Elite + VR-Modus + Helfer-Programme)
 
-`EDOverlayBoardStarter.exe` (Startmenü: *ED Overlay Board Starter*) startet alles für eine Runde mit einem Klick:
+`EDOverlayBoardStarter.exe` (Startmenü: *ED Overlay Board Starter*) startet alles für eine Runde mit einem Klick.
+
+> **Optional:** Der Starter ist nicht nötig. ED Overlay Board funktioniert auch allein – Elite, die VR-Software und
+> die App wie gewohnt starten (oder die App mit Windows starten lassen). Der Starter spart nur Klicks, z. B. wenn man
+> zwischen mehreren VR-Runtimes wechselt (Virtual Desktop, SteamVR, Meta Horizon Link) oder mehrere Helfer-Programme startet.
+
+<p>
+  <img src="docs/images/starter-start-de.png" alt="Starter: Reiter Start" width="49%">
+  <img src="docs/images/starter-vrmodes-de.png" alt="Starter: Reiter VR-Modi" width="49%">
+</p>
+
 
 - **VR-Modus:** Desktop, Virtual Desktop (VDXR), SteamVR, Meta Horizon Link oder jede andere OpenXR-Runtime. Der
   Starter stellt bei Bedarf die aktive OpenXR-Runtime um (Windows fragt einmal nach Admin-Rechten, nur wenn eine
@@ -138,6 +150,8 @@ Der genaue Ort steht im Reiter *Status* unter „Über“.
 Den Layer kurzfristig abschalten: Umgebungsvariable `DISABLE_XR_APILAYER_EDOB_OVERLAY_BOARD=1`.
 
 ## Einstellungen
+
+![Einstellungsfenster, Reiter Tasten](docs/images/settings-bindings-de.png)
 
 - **Am PC:** Doppelklick auf das Tray-Icon (oder erneuter Start der exe) öffnet das Einstellungsfenster.
   Reiter *Fenster* (anlegen, löschen, Programm auswählen, Titelleiste ausblenden, Position/Größe, Wischen),

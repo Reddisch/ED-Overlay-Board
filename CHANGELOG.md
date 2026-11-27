@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.0
 
 - New program **ED Overlay Board Starter** (`EDOverlayBoardStarter.exe`, own Start menu entry and optional
   desktop shortcut in the installer): starts Elite, the VR mode and any number of helper programs in one click.
@@ -8,7 +8,8 @@
   OpenXR runtime when needed (one UAC prompt, done on a worker thread) and start the VR program; programs have
   path, arguments, working folder, delay, timeout, "wait for VR" and running detection by process name(s) or window
   title. Detects Steam, Elite, runtimes, VoiceAttack and EDCoPilot on the first start (`starter.json`). Desktop
-  shortcut per VR mode, command line `--start --mode <name>`
+  shortcut per VR mode, command line `--start --mode <name>`. Optional: the app works without it as before
+- Screenshots in the README; settings window opens on a tab given by `EDOB_GUI_TAB=0..3` (for screenshots)
 
 ## 0.8.0
 

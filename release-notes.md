@@ -1,35 +1,55 @@
-## Neu in 0.8.0
+## Neu in 0.9.0 – ED Overlay Board Starter
 
-- **Transparente Fenster, jetzt auch mit VDXR:** Die Deckkraft wird direkt ins Bild geschrieben und
-  funktioniert damit mit jeder Runtime – das Cockpit scheint durch das Fenster. Pro Fenster mit
-  Schalter „Transparenz“ und Schieber „Deckkraft“ (Einstellungen und VR-Menü → *Fenster-Darstellung*),
-  dazu der Knopf „Transparenz an/aus“ im VR-Menü und die Aktion `toggleTransparency` für Taste/Joystick.
-- **Kein Zeigerpunkt mehr auf nicht klickbaren Programmfenstern** (nur mit Controller/Joystick
-  verschoben). Kneeboard-Seiten behalten ihn, dort entscheidet der Klickort über das Umblättern.
-- **Kneeboard-Rahmen:** Seiten erscheinen in einem Panel im Stil des VR-Menüs – dunkler Hintergrund,
-  abgeschrägte Ecken, orange Kontur und Kopfleiste mit Fenstername und Seitenzahl. Ein-/ausschaltbar
-  pro Fenster (Einstellungen, VR-Menü) und mit der Aktion `toggleFrame`.
+Neues Programm **ED Overlay Board Starter** (Startmenü, optional Desktop-Verknüpfung): startet Elite, den VR-Modus
+und beliebig viele Helfer-Programme mit einem Klick.
 
-App und Layer ändern sich (neue Schnittstelle): nach dem Update App und Elite neu starten.
+<p>
+  <img src="https://raw.githubusercontent.com/Reddisch/ED-Overlay-Board/main/docs/images/starter-start-de.png" alt="Starter: Reiter Start" width="49%">
+  <img src="https://raw.githubusercontent.com/Reddisch/ED-Overlay-Board/main/docs/images/starter-vrmodes-de.png" alt="Starter: Reiter VR-Modi" width="49%">
+</p>
+
+- **VR-Modus wählen:** Desktop, Virtual Desktop (VDXR), SteamVR, Meta Horizon Link oder eine andere OpenXR-Runtime.
+  Der Starter stellt bei Bedarf die aktive OpenXR-Runtime um (Windows fragt einmal nach Admin-Rechten, nur wenn
+  eine andere Runtime aktiv ist) und startet das passende VR-Programm.
+- **Programme:** Elite, ED Overlay Board, VoiceAttack, … mit Verzögerung, Zeitlimit und *Erst starten, wenn der
+  VR-Modus bereit ist*. Was schon läuft, wird nicht doppelt gestartet.
+- Erkennt beim ersten Start Steam, Elite, die installierten Runtimes und gängige Helfer-Programme.
+- **Desktop-Verknüpfung pro VR-Modus** (z. B. `Elite - SteamVR`), die sofort alles startet.
+
+> **Der Starter ist optional.** ED Overlay Board funktioniert wie bisher auch ohne ihn – Elite, VR-Software und App
+> einfach wie gewohnt starten. Der Starter spart nur Klicks, vor allem wenn man zwischen mehreren VR-Runtimes wechselt.
+
+Die Overlay-App und der Layer sind unverändert (keine neue Schnittstelle); Elite muss nicht neu gestartet werden.
 
 **Installation:** `EDOverlayBoard-Setup-<Version>.exe` herunterladen und ausführen. Meldet Windows
 „Der Computer wurde durch Windows geschützt“: **Weitere Informationen** → **Trotzdem ausführen**.
 Der Installer ist nicht kostenpflichtig signiert; er wird von GitHub Actions aus dem öffentlichen
 Quellcode gebaut.
 
-## New in 0.8.0
+---
 
-- **Transparent windows, now also with VDXR:** the opacity is written into the picture itself and so
-  works with every runtime – the cockpit shows through the window. Per window with the switch
-  "Transparency" and the "Opacity" slider (settings and VR menu → *Window look*), plus the button
-  "Transparency on/off" in the VR menu and the action `toggleTransparency` for key/joystick.
-- **No pointer dot on program windows that are not clickable** (only moved with controller/joystick).
-  Kneeboard pages keep it, there the click position turns the page.
-- **Kneeboard frame:** pages appear in a panel in the style of the VR menu – dark background, chamfered
-  corners, orange outline and a header bar with the window name and page number. Switchable per
-  window (settings, VR menu) and with the action `toggleFrame`.
+## New in 0.9.0 – ED Overlay Board Starter
 
-App and layer change (new interface): restart the app and Elite after updating.
+New program **ED Overlay Board Starter** (Start menu, optional desktop shortcut): starts Elite, the VR mode and any
+number of helper programs in one click.
+
+<p>
+  <img src="https://raw.githubusercontent.com/Reddisch/ED-Overlay-Board/main/docs/images/starter-start-en.png" alt="Starter: Start tab" width="49%">
+  <img src="https://raw.githubusercontent.com/Reddisch/ED-Overlay-Board/main/docs/images/starter-vrmodes-en.png" alt="Starter: VR modes tab" width="49%">
+</p>
+
+- **Choose a VR mode:** Desktop, Virtual Desktop (VDXR), SteamVR, Meta Horizon Link or any other OpenXR runtime.
+  The starter switches the active OpenXR runtime when needed (Windows asks once for admin rights, only when
+  another runtime is active) and starts the matching VR program.
+- **Programs:** Elite, ED Overlay Board, VoiceAttack, … with delay, timeout and *Start only once the VR mode is
+  ready*. Programs that are already running are not started twice.
+- Detects Steam, Elite, the installed runtimes and common helper programs on the first start.
+- **Desktop shortcut per VR mode** (e.g. `Elite - SteamVR`) that starts everything right away.
+
+> **The starter is optional.** ED Overlay Board works without it just as before – start Elite, your VR software and
+> the app the way you always did. The starter only saves clicks, especially when you switch between several VR runtimes.
+
+The overlay app and the layer are unchanged (no new interface); no need to restart Elite.
 
 **Installation:** download and run `EDOverlayBoard-Setup-<version>.exe`. If Windows says
 "Windows protected your PC": **More info** → **Run anyway**. The installer has no paid code signing

@@ -13,6 +13,8 @@ tracking; recenter with a keyboard hotkey or a HOTAS/joystick button. Works with
 > **Note:** This program was created with the help of AI (Claude by Anthropic) – code, texts and
 > installer. It was tested by the author with Quest 3, Virtual Desktop (VDXR) and Elite Dangerous.
 
+![Settings window, tab Windows](docs/images/settings-windows-en.png)
+
 ## Features
 
 - **Several windows at once**, each configured separately
@@ -50,7 +52,17 @@ tracking; recenter with a keyboard hotkey or a HOTAS/joystick button. Works with
 
 ## Starter (Elite + VR mode + helper programs)
 
-`EDOverlayBoardStarter.exe` (Start menu: *ED Overlay Board Starter*) starts everything for a session in one click:
+`EDOverlayBoardStarter.exe` (Start menu: *ED Overlay Board Starter*) starts everything for a session in one click.
+
+> **Optional:** you do not need the starter. ED Overlay Board works on its own – start Elite, your VR software and
+> the app the way you always did (or let the app start with Windows). The starter only saves clicks, e.g. when you
+> switch between several VR runtimes (Virtual Desktop, SteamVR, Meta Horizon Link) or start several helper programs.
+
+<p>
+  <img src="docs/images/starter-start-en.png" alt="Starter: Start tab" width="49%">
+  <img src="docs/images/starter-vrmodes-en.png" alt="Starter: VR modes tab" width="49%">
+</p>
+
 
 - **VR mode:** Desktop, Virtual Desktop (VDXR), SteamVR, Meta Horizon Link or any other OpenXR runtime. The
   starter switches the active OpenXR runtime when needed (Windows asks once for admin rights, only when another
@@ -136,6 +148,8 @@ The exact location is shown in the *Status* tab under "About".
 To switch the layer off temporarily: environment variable `DISABLE_XR_APILAYER_EDOB_OVERLAY_BOARD=1`.
 
 ## Settings
+
+![Settings window, tab Bindings](docs/images/settings-bindings-en.png)
 
 - **On the PC:** double-click the tray icon (or start the exe again) to open the settings window.
   Tabs *Windows* (add, delete, choose a program, hide title bar, position/size, swiping),
